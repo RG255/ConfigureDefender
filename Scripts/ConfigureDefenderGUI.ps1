@@ -262,6 +262,14 @@ $TsBtnExclRemove.Text         = 'Remove Selected'
 $TsBtnExclRemove.DisplayStyle = 'Text'
 $ToolStripExcl.Items.Add($TsBtnExclRemove) | Out-Null
 
+$ToolStripExcl.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
+$ToolStripExcl.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('Filter:'))) | Out-Null
+
+$ExclFilterBox       = New-Object System.Windows.Forms.TextBox
+$ExclFilterBox.Width = 200
+$ExclFilterHost      = New-Object System.Windows.Forms.ToolStripControlHost($ExclFilterBox)
+$ToolStripExcl.Items.Add($ExclFilterHost) | Out-Null
+
 $LvExcl               = New-Object System.Windows.Forms.ListView
 $LvExcl.Dock          = 'Fill'
 $LvExcl.View          = 'Details'
@@ -277,21 +285,33 @@ $LvExcl.Add_SizeChanged({
 $TabExcl.Controls.Add($LvExcl)
 $TabExcl.Controls.Add($ToolStripExcl)
 
-$TsBtnExclRefresh.Add_Click({
+function Update-ASRExclView
+{
 	$LvExcl.Items.Clear()
+	if (-not $script:ASRExclCache) { return }
+	$Filter = $ExclFilterBox.Text.Trim()
+	$ToShow = if ($Filter) { $script:ASRExclCache | Where-Object { $_ -ilike "*$Filter*" } } else { $script:ASRExclCache }
+	foreach ($P in $ToShow)
+	{ $LvExcl.Items.Add((New-Object System.Windows.Forms.ListViewItem($P))) | Out-Null }
+	$Count = @($ToShow).Count
+	$Total = $script:ASRExclCache.Count
+	$StatusLabel.Text = if ($Filter) { "ASR Exclusions: $Count of $Total shown." } else { "ASR Exclusions loaded ($Total entries)." }
+}
+
+$TsBtnExclRefresh.Add_Click({
 	try
 	{
 		$SRP = Get-CDSRP
 		$SRP.DataObject = 'Get-CDASRExclusions' | Send-Request @SRP -NoExitOnError
 		if ($SRP.DataObject.Error)
 		{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
-		$Paths = $SRP.DataObject.Result
-		foreach ($P in $Paths)
-		{ $LvExcl.Items.Add((New-Object System.Windows.Forms.ListViewItem($P))) | Out-Null }
-		$StatusLabel.Text = "ASR Exclusions loaded ($(@($Paths).Count) entries)."
+		$script:ASRExclCache = @($SRP.DataObject.Result)
+		Update-ASRExclView
 	}
 	catch { $StatusLabel.Text = 'Error loading ASR Exclusions: ' + $_.Exception.Message }
 })
+
+$ExclFilterBox.Add_TextChanged({ Update-ASRExclView })
 
 $TsBtnExclAdd.Add_Click({
 	# Build a small input dialog with a path TextBox and folder Browse button
@@ -500,21 +520,22 @@ $TsBtnAppsAdd.DisplayStyle = 'Text'
 $ToolStripApps.Items.Add($TsBtnAppsAdd) | Out-Null
 
 $TsBtnAppsRemove              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnAppsRemove.Text         = 'Remove Selected'
+$TsBtnAppsRemove.Text         = 'Remove'
 $TsBtnAppsRemove.DisplayStyle = 'Text'
 $ToolStripApps.Items.Add($TsBtnAppsRemove) | Out-Null
 
 $TsBtnAppsRemoveMissing              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnAppsRemoveMissing.Text         = 'Remove Missing'
+$TsBtnAppsRemoveMissing.Text         = 'Rm Missing'
 $TsBtnAppsRemoveMissing.DisplayStyle = 'Text'
 $ToolStripApps.Items.Add($TsBtnAppsRemoveMissing) | Out-Null
 
 $ToolStripApps.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
-$ToolStripApps.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('  Filter:'))) | Out-Null
+$ToolStripApps.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('Filter:'))) | Out-Null
 
-$TsTxtAppsFilter       = New-Object System.Windows.Forms.ToolStripTextBox
-$TsTxtAppsFilter.Width = 220
-$ToolStripApps.Items.Add($TsTxtAppsFilter) | Out-Null
+$AppsFilterBox        = New-Object System.Windows.Forms.TextBox
+$AppsFilterBox.Width  = 160
+$AppsFilterHost       = New-Object System.Windows.Forms.ToolStripControlHost($AppsFilterBox)
+$ToolStripApps.Items.Add($AppsFilterHost) | Out-Null
 
 $LvApps               = New-Object System.Windows.Forms.ListView
 $LvApps.Dock          = 'Fill'
@@ -536,7 +557,7 @@ function Update-AllowedAppsView
 {
 	$LvApps.Items.Clear()
 	if (-not $script:AllowedAppsCache) { return }
-	$Filter  = $TsTxtAppsFilter.Text.Trim()
+	$Filter  = $AppsFilterBox.Text.Trim()
 	$ToShow  = if ($Filter) { $script:AllowedAppsCache | Where-Object { $_ -ilike "*$Filter*" } } else { $script:AllowedAppsCache }
 	foreach ($A in $ToShow)
 	{
@@ -564,7 +585,7 @@ $TsBtnAppsRefresh.Add_Click({
 	catch { $StatusLabel.Text = 'Error loading Allowed Applications: ' + $_.Exception.Message }
 })
 
-$TsTxtAppsFilter.Add_TextChanged({ Update-AllowedAppsView })
+$AppsFilterBox.Add_TextChanged({ Update-AllowedAppsView })
 
 $TsBtnAppsAdd.Add_Click({
 	$OFD        = New-Object System.Windows.Forms.OpenFileDialog
