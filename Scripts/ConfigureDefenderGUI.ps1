@@ -878,9 +878,7 @@ $TsBtnEvRefresh.Text         = 'Refresh'
 $TsBtnEvRefresh.DisplayStyle = 'Text'
 $ToolStripEvents.Items.Add($TsBtnEvRefresh) | Out-Null
 
-$ToolStripEvents.Items.Add(
-	(New-Object System.Windows.Forms.ToolStripLabel('  Filter:'))
-) | Out-Null
+$ToolStripEvents.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('  Filter:'))) | Out-Null
 
 $TsCmbEvFilter               = New-Object System.Windows.Forms.ToolStripComboBox
 $TsCmbEvFilter.DropDownStyle = 'DropDownList'
@@ -888,6 +886,29 @@ $TsCmbEvFilter.Width         = 70
 $TsCmbEvFilter.Items.AddRange(@('All', 'ASR', 'CFA'))
 $TsCmbEvFilter.SelectedIndex = 0
 $ToolStripEvents.Items.Add($TsCmbEvFilter) | Out-Null
+
+$ToolStripEvents.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
+$ToolStripEvents.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('Since:'))) | Out-Null
+
+$TsCmbEvSince               = New-Object System.Windows.Forms.ToolStripComboBox
+$TsCmbEvSince.DropDownStyle = 'DropDownList'
+$TsCmbEvSince.Width         = 100
+$TsCmbEvSince.Items.AddRange(@('Since Boot', 'Today', 'Yesterday', 'Custom Date'))
+$TsCmbEvSince.SelectedIndex = 0
+$ToolStripEvents.Items.Add($TsCmbEvSince) | Out-Null
+
+$EvDatePicker            = New-Object System.Windows.Forms.DateTimePicker
+$EvDatePicker.Format     = [System.Windows.Forms.DateTimePickerFormat]::Short
+$EvDatePicker.Value      = [datetime]::Today
+$EvDatePickerHost          = New-Object System.Windows.Forms.ToolStripControlHost($EvDatePicker)
+$EvDatePickerHost.AutoSize = $false
+$EvDatePickerHost.Size     = New-Object System.Drawing.Size(100, 22)
+$EvDatePickerHost.Visible  = $false
+$ToolStripEvents.Items.Add($EvDatePickerHost) | Out-Null
+
+$TsCmbEvSince.Add_SelectedIndexChanged({
+	$EvDatePickerHost.Visible = ($TsCmbEvSince.SelectedItem -eq 'Custom Date')
+})
 
 $LvEvents               = New-Object System.Windows.Forms.ListView
 $LvEvents.Dock          = 'Fill'
@@ -912,11 +933,19 @@ $TsBtnEvRefresh.Add_Click({
 	try
 	{
 		$FilterVal = $TsCmbEvFilter.SelectedItem.ToString()
-		$Events    = Get-CDEvents -Filter $FilterVal
+		$Since     = switch ($TsCmbEvSince.SelectedItem.ToString())
+		{
+			'Today'       { [datetime]::Today }
+			'Yesterday'   { [datetime]::Today.AddDays(-1) }
+			'Custom Date' { $EvDatePicker.Value.Date }
+			default       { $null }  # Since Boot - Get-CDEvents default
+		}
+		$Events = if ($Since) { Get-CDEvents -Filter $FilterVal -Since $Since }
+		          else         { Get-CDEvents -Filter $FilterVal }
 		foreach ($Ev in $Events)
 		{
 			$Li = New-Object System.Windows.Forms.ListViewItem($Ev.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'))
-			$Li.SubItems.Add($Ev.EventType)                                       | Out-Null
+			$Li.SubItems.Add($Ev.EventType)                                           | Out-Null
 			$Li.SubItems.Add($(if ($Ev.ProcessName) { $Ev.ProcessName } else { '' })) | Out-Null
 			$Li.SubItems.Add($(if ($Ev.Path)        { $Ev.Path }        else { '' })) | Out-Null
 			$Li.SubItems.Add($(if ($Ev.RuleInfo)    { $Ev.RuleInfo }    else { '' })) | Out-Null
