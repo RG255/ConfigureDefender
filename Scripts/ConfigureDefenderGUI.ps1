@@ -878,6 +878,12 @@ $TsBtnEvRefresh.Text         = 'Refresh'
 $TsBtnEvRefresh.DisplayStyle = 'Text'
 $ToolStripEvents.Items.Add($TsBtnEvRefresh) | Out-Null
 
+$TsBtnEvAdd              = New-Object System.Windows.Forms.ToolStripButton
+$TsBtnEvAdd.Text         = 'Add Path'
+$TsBtnEvAdd.DisplayStyle = 'Text'
+$ToolStripEvents.Items.Add($TsBtnEvAdd) | Out-Null
+
+$ToolStripEvents.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
 $ToolStripEvents.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('  Filter:'))) | Out-Null
 
 $TsCmbEvFilter               = New-Object System.Windows.Forms.ToolStripComboBox
@@ -955,6 +961,66 @@ $TsBtnEvRefresh.Add_Click({
 		$StatusLabel.Text = "Events loaded ($(@($Events).Count) events)."
 	}
 	catch { $StatusLabel.Text = 'Error loading Events: ' + $_.Exception.Message }
+})
+
+$TsBtnEvAdd.Add_Click({
+	if ($LvEvents.SelectedItems.Count -ne 1) { $StatusLabel.Text = 'Select exactly one event row.'; return }
+	$Li       = $LvEvents.SelectedItems[0]
+	$EvType   = $Li.SubItems[1].Text  # 'Attack Surface Reduction' or 'Controlled Folder Access'
+	$ProcName = $Li.SubItems[2].Text
+	$Path     = $Li.SubItems[3].Text
+
+	if ($EvType -eq 'Attack Surface Reduction')
+	{
+		# Pre-fill the ASR Exclusion dialog with the blocked path
+		$PathToAdd = Show-ExclPathDialog 'Add ASR Exclusion from Event' $Path
+		if ($PathToAdd)
+		{
+			try
+			{
+				$SRP     = Get-CDSRP
+				$Escaped = $PathToAdd -replace "'", "''"
+				$SRP.DataObject = "Set-CDASRExclusion -Path '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
+				if ($SRP.DataObject.Error)
+				{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
+				else
+				{
+					$script:ASRExclCache += $PathToAdd
+					$StatusLabel.Text = "Added ASR exclusion: $PathToAdd"
+				}
+			}
+			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
+		}
+	}
+	elseif ($EvType -eq 'Controlled Folder Access')
+	{
+		if (-not $ProcName) { $StatusLabel.Text = 'No process name in this event.'; return }
+		$Confirm = [System.Windows.Forms.MessageBox]::Show(
+			"Add to Allowed Applications:`n`n$ProcName",
+			'Add Allowed Application',
+			[System.Windows.Forms.MessageBoxButtons]::OKCancel,
+			[System.Windows.Forms.MessageBoxIcon]::Question
+		)
+		if ($Confirm -eq 'OK')
+		{
+			try
+			{
+				$SRP     = Get-CDSRP
+				$Escaped = $ProcName -replace "'", "''"
+				$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
+				if ($SRP.DataObject.Error)
+				{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
+				else
+				{
+					$script:AllowedAppsCache += $ProcName
+					$StatusLabel.Text = "Added allowed application: $ProcName"
+				}
+			}
+			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
+		}
+	}
+	else
+	{ $StatusLabel.Text = 'Unknown event type — cannot add.' }
 })
 #endregion
 
