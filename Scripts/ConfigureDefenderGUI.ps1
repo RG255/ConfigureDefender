@@ -314,68 +314,78 @@ $TsBtnExclRefresh.Add_Click({
 
 $ExclFilterBox.Add_TextChanged({ Update-ASRExclView })
 
-$TsBtnExclAdd.Add_Click({
-	$InputForm                 = New-Object System.Windows.Forms.Form
-	$InputForm.Text            = 'Add ASR Exclusion'
-	$InputForm.Size            = New-Object System.Drawing.Size(580, 130)
-	$InputForm.StartPosition   = 'CenterParent'
-	$InputForm.FormBorderStyle = 'FixedDialog'
-	$InputForm.MaximizeBox     = $false
-	$InputForm.MinimizeBox     = $false
+# Shared dialog for Add and Edit - returns the entered path or $null
+function Show-ExclPathDialog ([string]$Title, [string]$Initial = '')
+{
+	$Dlg                 = New-Object System.Windows.Forms.Form
+	$Dlg.Text            = $Title
+	$Dlg.Size            = New-Object System.Drawing.Size(580, 130)
+	$Dlg.StartPosition   = 'CenterParent'
+	$Dlg.FormBorderStyle = 'FixedDialog'
+	$Dlg.MaximizeBox     = $false
+	$Dlg.MinimizeBox     = $false
 
 	$Lbl          = New-Object System.Windows.Forms.Label
-	$Lbl.Text     = 'Path to exclude (file or folder):'
+	$Lbl.Text     = 'Path to exclude — wildcards allowed (e.g. C:\Temp\*.tmp):'
 	$Lbl.Location = New-Object System.Drawing.Point(10, 10)
-	$Lbl.Size     = New-Object System.Drawing.Size(540, 18)
-	$InputForm.Controls.Add($Lbl)
+	$Lbl.Size     = New-Object System.Drawing.Size(545, 18)
+	$Dlg.Controls.Add($Lbl)
 
 	$Txt          = New-Object System.Windows.Forms.TextBox
+	$Txt.Text     = $Initial
 	$Txt.Location = New-Object System.Drawing.Point(10, 30)
 	$Txt.Size     = New-Object System.Drawing.Size(340, 22)
-	$InputForm.Controls.Add($Txt)
+	$Dlg.Controls.Add($Txt)
 
-	$BtnBrowseFile          = New-Object System.Windows.Forms.Button
-	$BtnBrowseFile.Text     = 'File...'
-	$BtnBrowseFile.Location = New-Object System.Drawing.Point(355, 28)
-	$BtnBrowseFile.Size     = New-Object System.Drawing.Size(55, 25)
-	$BtnBrowseFile.Add_Click({
-		$OFD = New-Object System.Windows.Forms.OpenFileDialog
-		$OFD.Title  = 'Select a file to exclude from ASR rules'
+	$BtnFile          = New-Object System.Windows.Forms.Button
+	$BtnFile.Text     = 'File...'
+	$BtnFile.Location = New-Object System.Drawing.Point(355, 28)
+	$BtnFile.Size     = New-Object System.Drawing.Size(55, 25)
+	$BtnFile.Add_Click({
+		$OFD        = New-Object System.Windows.Forms.OpenFileDialog
+		$OFD.Title  = 'Select a file to exclude'
 		$OFD.Filter = 'All files (*.*)|*.*'
 		if ($OFD.ShowDialog() -eq 'OK') { $Txt.Text = $OFD.FileName }
 	})
-	$InputForm.Controls.Add($BtnBrowseFile)
+	$Dlg.Controls.Add($BtnFile)
 
-	$BtnBrowseFolder          = New-Object System.Windows.Forms.Button
-	$BtnBrowseFolder.Text     = 'Folder...'
-	$BtnBrowseFolder.Location = New-Object System.Drawing.Point(415, 28)
-	$BtnBrowseFolder.Size     = New-Object System.Drawing.Size(60, 25)
-	$BtnBrowseFolder.Add_Click({
-		$FBD = New-Object System.Windows.Forms.FolderBrowserDialog
-		$FBD.Description = 'Select a folder to exclude from ASR rules'
+	$BtnFolder          = New-Object System.Windows.Forms.Button
+	$BtnFolder.Text     = 'Folder...'
+	$BtnFolder.Location = New-Object System.Drawing.Point(415, 28)
+	$BtnFolder.Size     = New-Object System.Drawing.Size(60, 25)
+	$BtnFolder.Add_Click({
+		$FBD             = New-Object System.Windows.Forms.FolderBrowserDialog
+		$FBD.Description = 'Select a folder to exclude'
 		if ($FBD.ShowDialog() -eq 'OK') { $Txt.Text = $FBD.SelectedPath }
 	})
-	$InputForm.Controls.Add($BtnBrowseFolder)
+	$Dlg.Controls.Add($BtnFolder)
 
 	$BtnOK              = New-Object System.Windows.Forms.Button
 	$BtnOK.Text         = 'OK'
 	$BtnOK.DialogResult = 'OK'
 	$BtnOK.Location     = New-Object System.Drawing.Point(380, 62)
 	$BtnOK.Size         = New-Object System.Drawing.Size(70, 25)
-	$InputForm.Controls.Add($BtnOK)
-	$InputForm.AcceptButton = $BtnOK
+	$Dlg.Controls.Add($BtnOK)
+	$Dlg.AcceptButton   = $BtnOK
 
 	$BtnCnl              = New-Object System.Windows.Forms.Button
 	$BtnCnl.Text         = 'Cancel'
 	$BtnCnl.DialogResult = 'Cancel'
 	$BtnCnl.Location     = New-Object System.Drawing.Point(455, 62)
 	$BtnCnl.Size         = New-Object System.Drawing.Size(70, 25)
-	$InputForm.Controls.Add($BtnCnl)
-	$InputForm.CancelButton = $BtnCnl
+	$Dlg.Controls.Add($BtnCnl)
+	$Dlg.CancelButton    = $BtnCnl
 
-	if ($InputForm.ShowDialog($Form) -eq 'OK' -and $Txt.Text.Trim())
+	if ($Dlg.ShowDialog($Form) -eq 'OK' -and $Txt.Text.Trim())
+	{ $Txt.Text.Trim() }
+	else
+	{ $null }
+}
+
+$TsBtnExclAdd.Add_Click({
+	$P = Show-ExclPathDialog 'Add ASR Exclusion'
+	if ($P)
 	{
-		$P = $Txt.Text.Trim()
 		try
 		{
 			$SRP     = Get-CDSRP
@@ -385,9 +395,39 @@ $TsBtnExclAdd.Add_Click({
 			{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 			else
 			{
-				$LvExcl.Items.Add((New-Object System.Windows.Forms.ListViewItem($P))) | Out-Null
+				$script:ASRExclCache += $P
+				Update-ASRExclView
 				$StatusLabel.Text = "Added exclusion: $P"
 			}
+		}
+		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
+	}
+})
+
+# Double-click to edit an existing exclusion
+$LvExcl.Add_DoubleClick({
+	$Li = $LvExcl.FocusedItem
+	if (-not $Li) { return }
+	$OldPath = $Li.Text
+	$NewPath = Show-ExclPathDialog 'Edit ASR Exclusion' $OldPath
+	if ($NewPath -and $NewPath -ne $OldPath)
+	{
+		try
+		{
+			$SRP        = Get-CDSRP
+			$EscOld     = $OldPath -replace "'", "''"
+			$EscNew     = $NewPath -replace "'", "''"
+			$SRP.DataObject = "Set-CDASRExclusion -Path '$EscOld' -Remove" | Send-Request @SRP -NoExitOnError
+			if ($SRP.DataObject.Error)
+			{ $StatusLabel.Text = "Error removing old path: $($SRP.DataObject.Error)"; return }
+			$SRP.DataObject = "Set-CDASRExclusion -Path '$EscNew' -Add" | Send-Request @SRP -NoExitOnError
+			if ($SRP.DataObject.Error)
+			{ $StatusLabel.Text = "Error adding new path: $($SRP.DataObject.Error)"; return }
+			# Update cache and view
+			$script:ASRExclCache = $script:ASRExclCache | Where-Object { $_ -ne $OldPath }
+			$script:ASRExclCache += $NewPath
+			Update-ASRExclView
+			$StatusLabel.Text = "Updated exclusion: $NewPath"
 		}
 		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
 	}
