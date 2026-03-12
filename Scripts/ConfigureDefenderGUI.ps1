@@ -281,7 +281,11 @@ $TsBtnExclRefresh.Add_Click({
 	$LvExcl.Items.Clear()
 	try
 	{
-		$Paths = Get-CDASRExclusions
+		$SRP = Get-CDSRP
+		$SRP.DataObject = 'Get-CDASRExclusions' | Send-Request @SRP -NoExitOnError
+		if ($SRP.DataObject.Error)
+		{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
+		$Paths = $SRP.DataObject.Result
 		foreach ($P in $Paths)
 		{ $LvExcl.Items.Add((New-Object System.Windows.Forms.ListViewItem($P))) | Out-Null }
 		$StatusLabel.Text = "ASR Exclusions loaded ($(@($Paths).Count) entries)."
@@ -525,7 +529,11 @@ $TsBtnAppsRefresh.Add_Click({
 	$LvApps.Items.Clear()
 	try
 	{
-		$Apps = Get-CDAllowedApplications
+		$SRP = Get-CDSRP
+		$SRP.DataObject = 'Get-CDAllowedApplications' | Send-Request @SRP -NoExitOnError
+		if ($SRP.DataObject.Error)
+		{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
+		$Apps = $SRP.DataObject.Result
 		foreach ($A in $Apps)
 		{
 			$Exists = Test-Path -Path $A
