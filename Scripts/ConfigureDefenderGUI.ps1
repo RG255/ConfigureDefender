@@ -265,9 +265,10 @@ $ToolStripExcl.Items.Add($TsBtnExclRemove) | Out-Null
 $ToolStripExcl.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
 $ToolStripExcl.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('Filter:'))) | Out-Null
 
-$ExclFilterBox       = New-Object System.Windows.Forms.TextBox
-$ExclFilterBox.Width = 200
-$ExclFilterHost      = New-Object System.Windows.Forms.ToolStripControlHost($ExclFilterBox)
+$ExclFilterBox          = New-Object System.Windows.Forms.TextBox
+$ExclFilterHost         = New-Object System.Windows.Forms.ToolStripControlHost($ExclFilterBox)
+$ExclFilterHost.AutoSize = $false
+$ExclFilterHost.Size    = New-Object System.Drawing.Size(200, 22)
 $ToolStripExcl.Items.Add($ExclFilterHost) | Out-Null
 
 $LvExcl               = New-Object System.Windows.Forms.ListView
@@ -314,41 +315,52 @@ $TsBtnExclRefresh.Add_Click({
 $ExclFilterBox.Add_TextChanged({ Update-ASRExclView })
 
 $TsBtnExclAdd.Add_Click({
-	# Build a small input dialog with a path TextBox and folder Browse button
-	$InputForm                    = New-Object System.Windows.Forms.Form
-	$InputForm.Text               = 'Add ASR Exclusion'
-	$InputForm.Size               = New-Object System.Drawing.Size(520, 130)
-	$InputForm.StartPosition      = 'CenterParent'
-	$InputForm.FormBorderStyle    = 'FixedDialog'
-	$InputForm.MaximizeBox        = $false
-	$InputForm.MinimizeBox        = $false
+	$InputForm                 = New-Object System.Windows.Forms.Form
+	$InputForm.Text            = 'Add ASR Exclusion'
+	$InputForm.Size            = New-Object System.Drawing.Size(580, 130)
+	$InputForm.StartPosition   = 'CenterParent'
+	$InputForm.FormBorderStyle = 'FixedDialog'
+	$InputForm.MaximizeBox     = $false
+	$InputForm.MinimizeBox     = $false
 
 	$Lbl          = New-Object System.Windows.Forms.Label
 	$Lbl.Text     = 'Path to exclude (file or folder):'
 	$Lbl.Location = New-Object System.Drawing.Point(10, 10)
-	$Lbl.Size     = New-Object System.Drawing.Size(480, 18)
+	$Lbl.Size     = New-Object System.Drawing.Size(540, 18)
 	$InputForm.Controls.Add($Lbl)
 
 	$Txt          = New-Object System.Windows.Forms.TextBox
 	$Txt.Location = New-Object System.Drawing.Point(10, 30)
-	$Txt.Size     = New-Object System.Drawing.Size(390, 22)
+	$Txt.Size     = New-Object System.Drawing.Size(340, 22)
 	$InputForm.Controls.Add($Txt)
 
-	$BtnBrowse          = New-Object System.Windows.Forms.Button
-	$BtnBrowse.Text     = '...'
-	$BtnBrowse.Location = New-Object System.Drawing.Point(405, 28)
-	$BtnBrowse.Size     = New-Object System.Drawing.Size(30, 25)
-	$BtnBrowse.Add_Click({
+	$BtnBrowseFile          = New-Object System.Windows.Forms.Button
+	$BtnBrowseFile.Text     = 'File...'
+	$BtnBrowseFile.Location = New-Object System.Drawing.Point(355, 28)
+	$BtnBrowseFile.Size     = New-Object System.Drawing.Size(55, 25)
+	$BtnBrowseFile.Add_Click({
+		$OFD = New-Object System.Windows.Forms.OpenFileDialog
+		$OFD.Title  = 'Select a file to exclude from ASR rules'
+		$OFD.Filter = 'All files (*.*)|*.*'
+		if ($OFD.ShowDialog() -eq 'OK') { $Txt.Text = $OFD.FileName }
+	})
+	$InputForm.Controls.Add($BtnBrowseFile)
+
+	$BtnBrowseFolder          = New-Object System.Windows.Forms.Button
+	$BtnBrowseFolder.Text     = 'Folder...'
+	$BtnBrowseFolder.Location = New-Object System.Drawing.Point(415, 28)
+	$BtnBrowseFolder.Size     = New-Object System.Drawing.Size(60, 25)
+	$BtnBrowseFolder.Add_Click({
 		$FBD = New-Object System.Windows.Forms.FolderBrowserDialog
-		$FBD.Description = 'Select a folder to exclude'
+		$FBD.Description = 'Select a folder to exclude from ASR rules'
 		if ($FBD.ShowDialog() -eq 'OK') { $Txt.Text = $FBD.SelectedPath }
 	})
-	$InputForm.Controls.Add($BtnBrowse)
+	$InputForm.Controls.Add($BtnBrowseFolder)
 
 	$BtnOK              = New-Object System.Windows.Forms.Button
 	$BtnOK.Text         = 'OK'
 	$BtnOK.DialogResult = 'OK'
-	$BtnOK.Location     = New-Object System.Drawing.Point(320, 60)
+	$BtnOK.Location     = New-Object System.Drawing.Point(380, 62)
 	$BtnOK.Size         = New-Object System.Drawing.Size(70, 25)
 	$InputForm.Controls.Add($BtnOK)
 	$InputForm.AcceptButton = $BtnOK
@@ -356,7 +368,7 @@ $TsBtnExclAdd.Add_Click({
 	$BtnCnl              = New-Object System.Windows.Forms.Button
 	$BtnCnl.Text         = 'Cancel'
 	$BtnCnl.DialogResult = 'Cancel'
-	$BtnCnl.Location     = New-Object System.Drawing.Point(395, 60)
+	$BtnCnl.Location     = New-Object System.Drawing.Point(455, 62)
 	$BtnCnl.Size         = New-Object System.Drawing.Size(70, 25)
 	$InputForm.Controls.Add($BtnCnl)
 	$InputForm.CancelButton = $BtnCnl
@@ -532,9 +544,10 @@ $ToolStripApps.Items.Add($TsBtnAppsRemoveMissing) | Out-Null
 $ToolStripApps.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
 $ToolStripApps.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('Filter:'))) | Out-Null
 
-$AppsFilterBox        = New-Object System.Windows.Forms.TextBox
-$AppsFilterBox.Width  = 160
-$AppsFilterHost       = New-Object System.Windows.Forms.ToolStripControlHost($AppsFilterBox)
+$AppsFilterBox           = New-Object System.Windows.Forms.TextBox
+$AppsFilterHost          = New-Object System.Windows.Forms.ToolStripControlHost($AppsFilterBox)
+$AppsFilterHost.AutoSize = $false
+$AppsFilterHost.Size     = New-Object System.Drawing.Size(160, 22)
 $ToolStripApps.Items.Add($AppsFilterHost) | Out-Null
 
 $LvApps               = New-Object System.Windows.Forms.ListView
