@@ -509,6 +509,13 @@ $TsBtnAppsRemoveMissing.Text         = 'Remove Missing'
 $TsBtnAppsRemoveMissing.DisplayStyle = 'Text'
 $ToolStripApps.Items.Add($TsBtnAppsRemoveMissing) | Out-Null
 
+$ToolStripApps.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
+$ToolStripApps.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('  Filter:'))) | Out-Null
+
+$TsTxtAppsFilter       = New-Object System.Windows.Forms.ToolStripTextBox
+$TsTxtAppsFilter.Width = 220
+$ToolStripApps.Items.Add($TsTxtAppsFilter) | Out-Null
+
 $LvApps               = New-Object System.Windows.Forms.ListView
 $LvApps.Dock          = 'Fill'
 $LvApps.View          = 'Details'
@@ -525,27 +532,39 @@ $LvApps.Add_SizeChanged({
 $TabApps.Controls.Add($LvApps)
 $TabApps.Controls.Add($ToolStripApps)
 
-$TsBtnAppsRefresh.Add_Click({
+function Update-AllowedAppsView
+{
 	$LvApps.Items.Clear()
+	if (-not $script:AllowedAppsCache) { return }
+	$Filter  = $TsTxtAppsFilter.Text.Trim()
+	$ToShow  = if ($Filter) { $script:AllowedAppsCache | Where-Object { $_ -ilike "*$Filter*" } } else { $script:AllowedAppsCache }
+	foreach ($A in $ToShow)
+	{
+		$Exists = Test-Path -Path $A
+		$Li     = New-Object System.Windows.Forms.ListViewItem($(if ($Exists) { 'OK' } else { 'Missing' }))
+		$Li.SubItems.Add($A) | Out-Null
+		$Li.ForeColor = if ($Exists) { [System.Drawing.Color]::Black } else { [System.Drawing.Color]::Red }
+		$LvApps.Items.Add($Li) | Out-Null
+	}
+	$Count = @($ToShow).Count
+	$Total = $script:AllowedAppsCache.Count
+	$StatusLabel.Text = if ($Filter) { "Allowed Applications: $Count of $Total shown." } else { "Allowed Applications loaded ($Total entries)." }
+}
+
+$TsBtnAppsRefresh.Add_Click({
 	try
 	{
 		$SRP = Get-CDSRP
 		$SRP.DataObject = 'Get-CDAllowedApplications' | Send-Request @SRP -NoExitOnError
 		if ($SRP.DataObject.Error)
 		{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
-		$Apps = $SRP.DataObject.Result
-		foreach ($A in $Apps)
-		{
-			$Exists = Test-Path -Path $A
-			$Li     = New-Object System.Windows.Forms.ListViewItem($(if ($Exists) { 'OK' } else { 'Missing' }))
-			$Li.SubItems.Add($A) | Out-Null
-			$Li.ForeColor = if ($Exists) { [System.Drawing.Color]::Black } else { [System.Drawing.Color]::Red }
-			$LvApps.Items.Add($Li) | Out-Null
-		}
-		$StatusLabel.Text = "Allowed Applications loaded ($(@($Apps).Count) entries)."
+		$script:AllowedAppsCache = @($SRP.DataObject.Result)
+		Update-AllowedAppsView
 	}
 	catch { $StatusLabel.Text = 'Error loading Allowed Applications: ' + $_.Exception.Message }
 })
+
+$TsTxtAppsFilter.Add_TextChanged({ Update-AllowedAppsView })
 
 $TsBtnAppsAdd.Add_Click({
 	$OFD        = New-Object System.Windows.Forms.OpenFileDialog
