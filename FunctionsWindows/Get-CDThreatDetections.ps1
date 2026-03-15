@@ -53,11 +53,11 @@ Function Get-CDThreatDetections
 	}
 
 	$StatusMap = @{
-		0   = 'Unknown';        1   = 'Detected';        2   = 'Cleaned'
-		3   = 'Quarantined';    4   = 'Removed';         5   = 'Allowed'
-		6   = 'Blocked';        8   = 'Blocked';         102 = 'CleanFailed'
-		103 = 'QuarantineFailed'; 104 = 'RemoveFailed';  105 = 'AllowFailed'
-		106 = 'NoActionNeeded'; 107 = 'NotSupported'
+		0   = 'Unknown';          1   = 'Detected';           2   = 'Cleaned'
+		3   = 'Quarantined';      4   = 'Removed';            5   = 'Allowed'
+		6   = 'Blocked';          8   = 'BlockedPreExecution'; 102 = 'QuarantineFailed'
+		103 = 'RemoveFailed';     104 = 'AllowFailed';        105 = 'Abandoned'
+		106 = 'NoActionNeeded';   107 = 'NotSupported'
 	}
 
 	$ActionMap = @{
