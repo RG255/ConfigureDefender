@@ -20,12 +20,12 @@ Function Open-CDPipeSession
 
 		.EXAMPLE
 		Open-CDPipeSession
-		Open-CDPipeSession -ModuleVersion '0.1'
+		Open-CDPipeSession -ModuleVersion '0.2'
 	#>
 	[CmdletBinding()]
 	param
 	(
-		[string]$ModuleVersion = '0.1'
+		[string]$ModuleVersion = '0.2'
 	)
 
 	# Return immediately if a healthy session already exists

@@ -1,4 +1,4 @@
-#requires -Version 5.0
+﻿#requires -Version 5.0
 <#
 	.SYNOPSIS
 	Windows Forms GUI for the ConfigureDefender module.
@@ -48,7 +48,7 @@
 
 #region Module Load
 Remove-Module ConfigureDefender -Force -ErrorAction SilentlyContinue
-Import-Module ConfigureDefender -RequiredVersion 0.1 -Force -ErrorAction Stop
+Import-Module ConfigureDefender -RequiredVersion 0.2 -Force -ErrorAction Stop
 #endregion
 
 #region Assemblies
@@ -131,7 +131,7 @@ function Show-CDHelp
 	}
 
 	$script:HelpForm                 = New-Object System.Windows.Forms.Form
-	$script:HelpForm.Text            = 'Configure Defender – Help'
+	$script:HelpForm.Text            = 'Configure Defender â€“ Help'
 	$script:HelpForm.Size            = New-Object System.Drawing.Size(520, 620)
 	$script:HelpForm.MinimumSize     = New-Object System.Drawing.Size(400, 400)
 	$script:HelpForm.FormBorderStyle = 'Sizable'
@@ -225,7 +225,7 @@ Displays recent ASR and CFA events from the Windows Defender event log.
 
 #region Main Form
 $Form                 = New-Object System.Windows.Forms.Form
-$Form.Text            = 'Configure Defender  v0.1'
+$Form.Text            = 'Configure Defender  v0.2'
 $Form.Size            = New-Object System.Drawing.Size(900, 650)
 $Form.StartPosition   = 'CenterScreen'
 $Form.FormBorderStyle = 'Sizable'
@@ -285,7 +285,7 @@ function Add-EmptyPlaceholder ([System.Windows.Forms.ListView]$Lv, [string]$Text
 # Shared helpers (dialogs + validators) - must be first
 . "$PSScriptRoot\GUI-Helpers.ps1"
 
-# Tab sections — Settings is first (leftmost, default tab)
+# Tab sections â€” Settings is first (leftmost, default tab)
 . "$PSScriptRoot\GUI-Tab-Settings.ps1"
 . "$PSScriptRoot\GUI-Tab-ASR.ps1"
 . "$PSScriptRoot\GUI-Tab-Exclusions.ps1"
@@ -304,7 +304,7 @@ $TabControl.Add_SelectedIndexChanged({
 			0 { $TsBtnSettingsRefresh.PerformClick() }
 			1 { $TsBtnRefresh.PerformClick() }
 			2 {
-				# Exclusions: update view from cache only — do not open the pipe until
+				# Exclusions: update view from cache only â€” do not open the pipe until
 				# the user explicitly clicks a category button or Refresh
 				switch ($script:ExclCategory)
 				{
