@@ -53,13 +53,13 @@ Function Get-CDEvents
 	$Results = Get-WinEvent -LogName 'Microsoft-Windows-Windows Defender/Operational' -ErrorAction SilentlyContinue |
 	Where-Object { $_.Id -in $EventIDs -and $_.TimeCreated -gt $Since } |
 	ForEach-Object {
-		$Event   = $_
-		$Message = [string]::New($Enc.GetBytes($Event.Message)) -split "`n"
+		$EvRec   = $_
+		$Message = [string]::New($Enc.GetBytes($EvRec.Message)) -split "`n"
 
 		$Obj = [PSCustomObject][Ordered]@{
-			EventID     = [string]$Event.Id
-			EventType   = if ($Event.Id -eq 1121) { 'Attack Surface Reduction' } else { 'Controlled Folder Access' }
-			TimeCreated = $Event.TimeCreated
+			EventID     = [string]$EvRec.Id
+			EventType   = if ($EvRec.Id -eq 1121) { 'Attack Surface Reduction' } else { 'Controlled Folder Access' }
+			TimeCreated = $EvRec.TimeCreated
 			ID          = $null      # ASR only: rule GUID from message
 			RuleInfo    = $null      # ASR only: rule description
 			Path        = $null
@@ -81,7 +81,7 @@ Function Get-CDEvents
 		}
 
 		# Resolve rule GUID to description (ASR only)
-		if ($Event.Id -eq 1121 -and $Obj.ID)
+		if ($EvRec.Id -eq 1121 -and $Obj.ID)
 		{
 			$Obj.RuleInfo = if ($script:ASRRules.Contains($Obj.ID)) { $script:ASRRules[$Obj.ID] } else { 'Unknown rule' }
 		}

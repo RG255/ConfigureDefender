@@ -58,10 +58,16 @@ Describe 'Module Import' {
 		$Expected = @(
 			'Get-CDASRRules', 'Get-CDEvents', 'Get-CDControlledFolders',
 			'Get-CDNetworkProtection', 'Get-CDControlledFolderAccess',
-			'Get-CDASRExclusions', 'Get-CDAllowedApplications',
-			'Set-CDASRRule', 'Set-CDASRExclusion', 'Set-CDControlledFolder',
-			'Set-CDAllowedApplication', 'Set-CDControlledFolderAccess',
-			'Set-CDNetworkProtection', 'Open-CDPipeSession', 'Close-CDPipeSession'
+			'Get-CDASRExclusions', 'Get-CDExclusionProcesses',
+			'Get-CDExclusionPaths', 'Get-CDExclusionExtensions',
+			'Get-CDExclusionIpAddresses', 'Get-CDAllowedApplications',
+			'Get-CDSettings', 'Get-CDThreatActions', 'Get-CDSendRequestParams',
+			'Set-CDASRRule', 'Set-CDASRExclusion', 'Set-CDExclusionProcess',
+			'Set-CDExclusionPath', 'Set-CDExclusionExtension',
+			'Set-CDExclusionIpAddress', 'Set-CDSetting', 'Set-CDThreatAction',
+			'Set-CDControlledFolder', 'Set-CDAllowedApplication',
+			'Set-CDControlledFolderAccess', 'Set-CDNetworkProtection',
+			'Open-CDPipeSession', 'Close-CDPipeSession', 'Start-ConfigureDefenderGUI'
 		)
 		$Exported = (Get-Module -Name ConfigureDefender).ExportedFunctions.Keys | Sort-Object
 		Compare-Object -ReferenceObject ($Expected | Sort-Object) -DifferenceObject $Exported |

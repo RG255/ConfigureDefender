@@ -53,8 +53,9 @@ function Write-TestHeader
 
 function Get-SRP
 {
-    # Retrieve the module-scope SendRequestParams from inside the module
-    (Get-Module ConfigureDefender).Invoke({ $script:CDSendRequestParams })
+    # Use the exported accessor - $Mod.Invoke({ $script:var }) does not resolve
+    # $script: from the module scope when the scriptblock is defined outside it.
+    Get-CDSendRequestParams
 }
 
 function Invoke-PipeCommand

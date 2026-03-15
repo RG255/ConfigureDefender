@@ -11,13 +11,22 @@
 
 	Tabs
 	----
-	  1. ASR Rules         - view and toggle all ASR rules per-rule
-	  2. ASR Exclusions    - list / add / remove ASR exclusion paths
-	  3. Controlled Folders- list / add / remove protected folders
-	  4. Allowed Apps      - list / add / remove / remove-missing allowed applications
-	  5. Network Protection- view and set mode (Disabled / Audit / Enabled)
-	  6. CFA State         - enable / audit / disable Controlled Folder Access
-	  7. Events            - view recent ASR and CFA events from the event log
+	  1. ASR Rules         - view and toggle rules; toolbar toggle reveals ASR Exclusions panel
+	  2. Exclusions        - toolbar selects: ASR / Paths / Extensions / Processes / IPs
+	  3. Controlled Folders- list / add / remove protected folders; toolbar toggle reveals Allowed Apps
+	  4. Settings          - view and edit Defender settings incl. Network Protection & CFA State
+	  5. Threat Actions    - set default action per threat severity level
+	  6. Events            - view recent ASR and CFA events from the event log
+
+	Source files (dot-sourced from this entry point)
+	-------------------------------------------------
+	  GUI-Helpers.ps1          - Shared dialog functions (Show-ExclPathDialog, etc.) and
+	                             input validators (Test-CDExclusionPath, Test-CDIPAddress, etc.)
+	  GUI-Tab-ASR.ps1          - Tab 1: ASR Rules + ASR Exclusions split panel
+	  GUI-Tab-Exclusions.ps1   - Tab 2: unified Exclusions tab (ASR/Path/Ext/Proc/IP)
+	  GUI-Tab-CFA.ps1          - Tab 3: Controlled Folders + Allowed Apps split panel
+	  GUI-Tab-Settings.ps1     - Tab 4: Settings
+	  GUI-Tab-ThreatEvents.ps1 - Tabs 5-6: Threat Actions + Events
 
 	.NOTES
 	Elevation pattern
@@ -39,7 +48,7 @@
 
 #region Module Load
 Remove-Module ConfigureDefender -Force -ErrorAction SilentlyContinue
-Import-Module ConfigureDefender -RequiredVersion 0.1 -ErrorAction Stop
+Import-Module ConfigureDefender -RequiredVersion 0.1 -Force -ErrorAction Stop
 #endregion
 
 #region Assemblies
@@ -51,15 +60,52 @@ Add-Type -AssemblyName System.Drawing
 #region Helpers
 function Get-CDSRP
 {
-	# Returns the SendRequestParams hashtable, opening the pipe session if needed
-	$Mod = Get-Module ConfigureDefender
-	$SRP = $Mod.Invoke({ $script:CDSendRequestParams })
+	# Returns the SendRequestParams hashtable, opening the pipe session if needed.
+	# Uses Get-CDSendRequestParams (a ConfigureDefender module function) rather than
+	# $Mod.Invoke() because Invoke() does not reliably resolve $script: variables
+	# from a scriptblock defined outside the module.
+	$SRP = Get-CDSendRequestParams
 	if (-not $SRP)
 	{
-		$StatusLabel.Text = 'Opening elevated session...'
+		# Show a non-modal wait dialog - pipe open is slow (UAC + process start)
+		$WaitDlg                 = New-Object System.Windows.Forms.Form
+		$WaitDlg.Text            = 'Configure Defender'
+		$WaitDlg.Size            = New-Object System.Drawing.Size(340, 90)
+		$WaitDlg.StartPosition   = 'Manual'
+		$WaitDlg.Location        = New-Object System.Drawing.Point(
+			[int]($Form.Left + ($Form.Width  - 340) / 2),
+			[int]($Form.Top  + ($Form.Height -  90) / 2)
+		)
+		$WaitDlg.FormBorderStyle = 'FixedDialog'
+		$WaitDlg.MaximizeBox     = $false
+		$WaitDlg.MinimizeBox     = $false
+		$WaitDlg.ControlBox      = $false
+
+		$WaitLbl           = New-Object System.Windows.Forms.Label
+		$WaitLbl.Text      = 'Initialising...'
+		$WaitLbl.Location  = New-Object System.Drawing.Point(10, 22)
+		$WaitLbl.Size      = New-Object System.Drawing.Size(310, 22)
+		$WaitLbl.TextAlign = 'MiddleCenter'
+		$WaitDlg.Controls.Add($WaitLbl)
+
+		$WaitDlg.Show($Form)
 		[System.Windows.Forms.Application]::DoEvents()
-		Open-CDPipeSession
-		$SRP = $Mod.Invoke({ $script:CDSendRequestParams })
+
+		try
+		{
+			$StatusLabel.Text = 'Opening elevated session...'
+			Open-CDPipeSession
+			$SRP = Get-CDSendRequestParams
+		}
+		catch
+		{
+			throw
+		}
+		finally
+		{
+			$WaitDlg.Close()
+			$WaitDlg.Dispose()
+		}
 	}
 	$SRP
 }
@@ -74,6 +120,106 @@ function Get-ASRItemColor ([string]$Action)
 		'Disabled' { [System.Drawing.Color]::Gray }
 		default    { [System.Drawing.Color]::LightGray }
 	}
+}
+
+function Show-CDHelp
+{
+	if ($script:HelpForm -and -not $script:HelpForm.IsDisposed)
+	{
+		$script:HelpForm.BringToFront()
+		return
+	}
+
+	$script:HelpForm                 = New-Object System.Windows.Forms.Form
+	$script:HelpForm.Text            = 'Configure Defender – Help'
+	$script:HelpForm.Size            = New-Object System.Drawing.Size(520, 620)
+	$script:HelpForm.MinimumSize     = New-Object System.Drawing.Size(400, 400)
+	$script:HelpForm.FormBorderStyle = 'Sizable'
+	$script:HelpForm.StartPosition   = 'Manual'
+
+	# Position to the right of the main form; fall back to the left if off-screen
+	$Screen   = [System.Windows.Forms.Screen]::FromControl($Form).WorkingArea
+	$HelpLeft = $Form.Right + 10
+	if ($HelpLeft + 520 -gt $Screen.Right) { $HelpLeft = [Math]::Max($Screen.Left, $Form.Left - 530) }
+	$HelpTop  = [Math]::Max($Screen.Top, [Math]::Min($Form.Top, $Screen.Bottom - 620))
+	$script:HelpForm.Location = New-Object System.Drawing.Point($HelpLeft, $HelpTop)
+
+	$HelpRtb              = New-Object System.Windows.Forms.RichTextBox
+	$HelpRtb.Dock         = 'Fill'
+	$HelpRtb.ReadOnly     = $true
+	$HelpRtb.BackColor    = [System.Drawing.SystemColors]::Window
+	$HelpRtb.BorderStyle  = 'None'
+	$HelpRtb.Font         = New-Object System.Drawing.Font('Segoe UI', 9)
+	$HelpRtb.ScrollBars   = 'Vertical'
+	$HelpRtb.Text         = @"
+CONFIGURE DEFENDER - QUICK GUIDE
+=================================
+
+GENERAL
+-------
+The GUI connects to an elevated Defender management service via a named
+pipe.  The first operation that requires administrative access will prompt
+for UAC elevation; subsequent operations in the same session reuse the
+elevated connection without further prompting.  Read (Refresh) operations
+do not require elevation.
+
+ASR RULES TAB
+-------------
+Lists all Attack Surface Reduction rules and their current action
+(Blocked / Audit / Warn / Disabled).
+
+  - Right-click one or more selected rules to change their action via
+    the Set Action drop-down on the toolbar.
+  - To manage ASR exclusions use the Exclusions tab (ASR category).
+    ASR exclusions apply globally to all ASR rules.
+
+EXCLUSIONS TAB
+--------------
+Manages Defender-wide exclusions grouped by category.
+
+  - Click a category button (ASR / Paths / Extensions / Processes / IPs)
+    to view and manage that exclusion type.  Each click fetches fresh
+    data from Windows Defender.
+  - Double-click an exclusion to edit it.
+  - Use Remove Selected to delete one or more highlighted exclusions.
+
+CONTROLLED FOLDERS (CFA) TAB
+-----------------------------
+Lists folders protected by Controlled Folder Access.
+
+  - Use Add / Remove Selected to manage protected folders.
+  - Click Allowed Apps [+] to show the Allowed Applications panel below.
+  - The divider between the folders list and the apps panel can be
+    dragged up or down to adjust the split.
+  - In the Apps panel, double-click an app path to edit it.
+  - Rm Missing removes entries whose application file no longer exists.
+
+SETTINGS TAB
+------------
+Shows all configurable Windows Defender settings.
+
+  - Double-click a setting row to change its value.
+  - Changes take effect immediately via the elevated service.
+
+THREAT ACTIONS TAB
+------------------
+Sets the default remediation action per threat severity level
+(Low / Moderate / High / Severe).
+
+  - Select one or more rows, then use Set Action to apply an action.
+
+EVENTS TAB
+----------
+Displays recent ASR and CFA events from the Windows Defender event log.
+
+  - Use the Filter combo to show All, ASR-only, or CFA-only events.
+  - Use the Since combo to limit results by date; choose Custom Date to
+    pick a specific day.
+  - Select exactly one event row, then click Add as Exclusion to add
+    that file path as an exclusion.
+"@
+	$script:HelpForm.Controls.Add($HelpRtb)
+	$script:HelpForm.Show($Form)
 }
 #endregion
 
@@ -94,8 +240,18 @@ $Form.Add_FormClosing({
 #region Status Bar
 $StatusBar    = New-Object System.Windows.Forms.StatusStrip
 $StatusLabel  = New-Object System.Windows.Forms.ToolStripStatusLabel
-$StatusLabel.Text = 'Ready'
+$StatusLabel.Text      = 'Ready'
+$StatusLabel.Spring    = $true
 $StatusBar.Items.Add($StatusLabel) | Out-Null
+
+$HelpStatusLbl            = New-Object System.Windows.Forms.ToolStripStatusLabel
+$HelpStatusLbl.Text       = 'Help'
+$HelpStatusLbl.Alignment  = 'Right'
+$HelpStatusLbl.ForeColor  = [System.Drawing.Color]::Blue
+$HelpStatusLbl.ToolTipText = 'Open Help window'
+$HelpStatusLbl.Add_Click({ Show-CDHelp })
+$StatusBar.Items.Add($HelpStatusLbl) | Out-Null
+
 $Form.Controls.Add($StatusBar)
 #endregion
 
@@ -112,922 +268,65 @@ function New-Tab ([string]$Title)
 	$TabControl.TabPages.Add($Tab)
 	$Tab
 }
-#endregion
 
-#region Tab 1 - ASR Rules
-$TabASR = New-Tab 'ASR Rules'
-
-# Shared action handler - used by both toolbar dropdown and right-click context menu
-$ASRActionHandler = {
-	$Action   = $this.Tag
-	$Selected = @($LvASR.SelectedItems)
-	if ($Selected.Count -eq 0) { $StatusLabel.Text = 'No rules selected.'; return }
-	try
-	{
-		$SRP      = Get-CDSRP
-		$Ok       = 0
-		$ErrCount = 0
-		foreach ($Li in $Selected)
-		{
-			$GUID = $Li.Tag
-			$SRP.DataObject = "Set-CDASRRule -GUID '$GUID' -Action $Action" | Send-Request @SRP -NoExitOnError
-			if ($SRP.DataObject.Error)
-			{
-				$ErrCount++
-				$StatusLabel.Text = "Error on $GUID : $($SRP.DataObject.Error)"
-			}
-			else
-			{
-				$Li.Text      = $Action
-				$Li.ForeColor = Get-ASRItemColor $Action
-				$Ok++
-			}
-		}
-		if ($ErrCount -eq 0)
-		{ $StatusLabel.Text = "$Ok rule(s) set to $Action." }
-		else
-		{ $StatusLabel.Text = "$Ok set to $Action, $ErrCount error(s)." }
-	}
-	catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-}
-
-# ToolStrip toolbar
-$ToolStripASR      = New-Object System.Windows.Forms.ToolStrip
-$ToolStripASR.Dock = 'Top'
-
-$TsBtnRefresh              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnRefresh.Text         = 'Refresh'
-$TsBtnRefresh.DisplayStyle = 'Text'
-$ToolStripASR.Items.Add($TsBtnRefresh) | Out-Null
-
-$TsBtnSelectAll              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnSelectAll.Text         = 'Select All'
-$TsBtnSelectAll.DisplayStyle = 'Text'
-$TsBtnSelectAll.Add_Click({ $LvASR.Items | ForEach-Object { $_.Selected = $true } })
-$ToolStripASR.Items.Add($TsBtnSelectAll) | Out-Null
-
-$ToolStripASR.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
-
-# Set Action dropdown button
-$TsBtnSetAction                   = New-Object System.Windows.Forms.ToolStripDropDownButton
-$TsBtnSetAction.Text              = 'Set Action'
-$TsBtnSetAction.DisplayStyle      = 'Text'
-$TsBtnSetAction.ShowDropDownArrow = $true
-foreach ($ActionName in @('Disabled', 'Audit', 'Blocked', 'Warn'))
+function Add-EmptyPlaceholder ([System.Windows.Forms.ListView]$Lv, [string]$Text = '(nothing configured)')
 {
-	$Item     = New-Object System.Windows.Forms.ToolStripMenuItem($ActionName)
-	$Item.Tag = $ActionName
-	$Item.Add_Click($ASRActionHandler)
-	$TsBtnSetAction.DropDownItems.Add($Item) | Out-Null
+	if ($Lv.Items.Count -eq 0)
+	{
+		$Pi           = New-Object System.Windows.Forms.ListViewItem($Text)
+		$Pi.ForeColor = [System.Drawing.Color]::Gray
+		$Pi.Tag       = '$placeholder'
+		$Lv.Items.Add($Pi) | Out-Null
+	}
 }
-$ToolStripASR.Items.Add($TsBtnSetAction) | Out-Null
-
-# ListView
-$LvASR               = New-Object System.Windows.Forms.ListView
-$LvASR.Dock          = 'Fill'
-$LvASR.View          = 'Details'
-$LvASR.FullRowSelect = $true
-$LvASR.GridLines     = $true
-$LvASR.MultiSelect   = $true
-$LvASR.Columns.Add('Action',       80) | Out-Null
-$LvASR.Columns.Add('GUID',        280) | Out-Null
-$LvASR.Columns.Add('Description', 470) | Out-Null
-
-# Right-click context menu (same actions as toolbar dropdown)
-$CtxASR = New-Object System.Windows.Forms.ContextMenuStrip
-foreach ($ActionName in @('Disabled', 'Audit', 'Blocked', 'Warn'))
-{
-	$MenuItem     = New-Object System.Windows.Forms.ToolStripMenuItem($ActionName)
-	$MenuItem.Tag = $ActionName
-	$MenuItem.Add_Click($ASRActionHandler)
-	$CtxASR.Items.Add($MenuItem) | Out-Null
-}
-$LvASR.ContextMenuStrip = $CtxASR
-
-# Stretch Description column to fill available width on resize
-$LvASR.Add_SizeChanged({
-	$w = $LvASR.ClientSize.Width - 80 - 280 - 22  # Action + GUID + scrollbar
-	if ($w -gt 100) { $LvASR.Columns[2].Width = $w }
-})
-
-# Ctrl+A to select all
-$LvASR.Add_KeyDown({
-	if ($_.Control -and $_.KeyCode -eq 'A')
-	{ $LvASR.Items | ForEach-Object { $_.Selected = $true } }
-})
-
-# Add controls - ListView first so Fill docking works, then ToolStrip on top
-$TabASR.Controls.Add($LvASR)
-$TabASR.Controls.Add($ToolStripASR)
-
-# Refresh handler - also called on initial load
-$TsBtnRefresh.Add_Click({
-	$LvASR.Items.Clear()
-	try
-	{
-		$Rules = Get-CDASRRules
-		foreach ($Rule in $Rules)
-		{
-			$Li = New-Object System.Windows.Forms.ListViewItem($Rule.Action)
-			$Li.SubItems.Add($Rule.GUID)        | Out-Null
-			$Li.SubItems.Add($Rule.Description) | Out-Null
-			$Li.Tag       = $Rule.GUID
-			$Li.ForeColor = Get-ASRItemColor $Rule.Action
-			$LvASR.Items.Add($Li) | Out-Null
-		}
-		$StatusLabel.Text = "ASR Rules loaded ($($Rules.Count) rules)."
-	}
-	catch { $StatusLabel.Text = 'Error loading ASR Rules: ' + $_.Exception.Message }
-})
 #endregion
 
-#region Tab 2 - ASR Exclusions
-$TabExcl = New-Tab 'ASR Exclusions'
 
-$ToolStripExcl      = New-Object System.Windows.Forms.ToolStrip
-$ToolStripExcl.Dock = 'Top'
-
-$TsBtnExclRefresh              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnExclRefresh.Text         = 'Refresh'
-$TsBtnExclRefresh.DisplayStyle = 'Text'
-$ToolStripExcl.Items.Add($TsBtnExclRefresh) | Out-Null
-
-$TsBtnExclAdd              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnExclAdd.Text         = 'Add'
-$TsBtnExclAdd.DisplayStyle = 'Text'
-$ToolStripExcl.Items.Add($TsBtnExclAdd) | Out-Null
-
-$TsBtnExclRemove              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnExclRemove.Text         = 'Remove Selected'
-$TsBtnExclRemove.DisplayStyle = 'Text'
-$ToolStripExcl.Items.Add($TsBtnExclRemove) | Out-Null
-
-$ToolStripExcl.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
-$ToolStripExcl.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('Filter:'))) | Out-Null
-
-$ExclFilterBox          = New-Object System.Windows.Forms.TextBox
-$ExclFilterHost         = New-Object System.Windows.Forms.ToolStripControlHost($ExclFilterBox)
-$ExclFilterHost.AutoSize = $false
-$ExclFilterHost.Size    = New-Object System.Drawing.Size(200, 22)
-$ToolStripExcl.Items.Add($ExclFilterHost) | Out-Null
-
-$LvExcl               = New-Object System.Windows.Forms.ListView
-$LvExcl.Dock          = 'Fill'
-$LvExcl.View          = 'Details'
-$LvExcl.FullRowSelect = $true
-$LvExcl.GridLines     = $true
-$LvExcl.MultiSelect   = $true
-$LvExcl.Columns.Add('Path', 800) | Out-Null
-$LvExcl.Add_SizeChanged({
-	$w = $LvExcl.ClientSize.Width - 22
-	if ($w -gt 100) { $LvExcl.Columns[0].Width = $w }
-})
-
-$TabExcl.Controls.Add($LvExcl)
-$TabExcl.Controls.Add($ToolStripExcl)
-
-function Update-ASRExclView
-{
-	$LvExcl.Items.Clear()
-	if (-not $script:ASRExclCache) { return }
-	$Filter = $ExclFilterBox.Text.Trim()
-	$ToShow = if ($Filter) { $script:ASRExclCache | Where-Object { $_ -ilike "*$Filter*" } } else { $script:ASRExclCache }
-	foreach ($P in $ToShow)
-	{ $LvExcl.Items.Add((New-Object System.Windows.Forms.ListViewItem($P))) | Out-Null }
-	$Count = @($ToShow).Count
-	$Total = $script:ASRExclCache.Count
-	$StatusLabel.Text = if ($Filter) { "ASR Exclusions: $Count of $Total shown." } else { "ASR Exclusions loaded ($Total entries)." }
-}
-
-$TsBtnExclRefresh.Add_Click({
-	try
-	{
-		$SRP = Get-CDSRP
-		$SRP.DataObject = 'Get-CDASRExclusions' | Send-Request @SRP -NoExitOnError
-		if ($SRP.DataObject.Error)
-		{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
-		$script:ASRExclCache = @($SRP.DataObject.Result)
-		Update-ASRExclView
-	}
-	catch { $StatusLabel.Text = 'Error loading ASR Exclusions: ' + $_.Exception.Message }
-})
-
-$ExclFilterBox.Add_TextChanged({ Update-ASRExclView })
-
-# Shared dialog for Add and Edit - returns the entered path or $null
-function Show-ExclPathDialog ([string]$Title, [string]$Initial = '')
-{
-	$Dlg                 = New-Object System.Windows.Forms.Form
-	$Dlg.Text            = $Title
-	$Dlg.Size            = New-Object System.Drawing.Size(580, 130)
-	$Dlg.StartPosition   = 'CenterParent'
-	$Dlg.FormBorderStyle = 'FixedDialog'
-	$Dlg.MaximizeBox     = $false
-	$Dlg.MinimizeBox     = $false
-
-	$Lbl          = New-Object System.Windows.Forms.Label
-	$Lbl.Text     = 'Path to exclude — wildcards allowed (e.g. C:\Temp\*.tmp):'
-	$Lbl.Location = New-Object System.Drawing.Point(10, 10)
-	$Lbl.Size     = New-Object System.Drawing.Size(545, 18)
-	$Dlg.Controls.Add($Lbl)
-
-	$Txt          = New-Object System.Windows.Forms.TextBox
-	$Txt.Text     = $Initial
-	$Txt.Location = New-Object System.Drawing.Point(10, 30)
-	$Txt.Size     = New-Object System.Drawing.Size(340, 22)
-	$Dlg.Controls.Add($Txt)
-
-	$BtnFile          = New-Object System.Windows.Forms.Button
-	$BtnFile.Text     = 'File...'
-	$BtnFile.Location = New-Object System.Drawing.Point(355, 28)
-	$BtnFile.Size     = New-Object System.Drawing.Size(55, 25)
-	$BtnFile.Add_Click({
-		$OFD        = New-Object System.Windows.Forms.OpenFileDialog
-		$OFD.Title  = 'Select a file to exclude'
-		$OFD.Filter = 'All files (*.*)|*.*'
-		if ($OFD.ShowDialog() -eq 'OK') { $Txt.Text = $OFD.FileName }
-	})
-	$Dlg.Controls.Add($BtnFile)
-
-	$BtnFolder          = New-Object System.Windows.Forms.Button
-	$BtnFolder.Text     = 'Folder...'
-	$BtnFolder.Location = New-Object System.Drawing.Point(415, 28)
-	$BtnFolder.Size     = New-Object System.Drawing.Size(60, 25)
-	$BtnFolder.Add_Click({
-		$FBD             = New-Object System.Windows.Forms.FolderBrowserDialog
-		$FBD.Description = 'Select a folder to exclude'
-		if ($FBD.ShowDialog() -eq 'OK') { $Txt.Text = $FBD.SelectedPath }
-	})
-	$Dlg.Controls.Add($BtnFolder)
-
-	$BtnOK              = New-Object System.Windows.Forms.Button
-	$BtnOK.Text         = 'OK'
-	$BtnOK.DialogResult = 'OK'
-	$BtnOK.Location     = New-Object System.Drawing.Point(380, 62)
-	$BtnOK.Size         = New-Object System.Drawing.Size(70, 25)
-	$Dlg.Controls.Add($BtnOK)
-	$Dlg.AcceptButton   = $BtnOK
-
-	$BtnCnl              = New-Object System.Windows.Forms.Button
-	$BtnCnl.Text         = 'Cancel'
-	$BtnCnl.DialogResult = 'Cancel'
-	$BtnCnl.Location     = New-Object System.Drawing.Point(455, 62)
-	$BtnCnl.Size         = New-Object System.Drawing.Size(70, 25)
-	$Dlg.Controls.Add($BtnCnl)
-	$Dlg.CancelButton    = $BtnCnl
-
-	if ($Dlg.ShowDialog($Form) -eq 'OK' -and $Txt.Text.Trim())
-	{ $Txt.Text.Trim() }
-	else
-	{ $null }
-}
-
-$TsBtnExclAdd.Add_Click({
-	$P = Show-ExclPathDialog 'Add ASR Exclusion'
-	if ($P)
-	{
-		try
-		{
-			$SRP     = Get-CDSRP
-			$Escaped = $P -replace "'", "''"
-			$SRP.DataObject = "Set-CDASRExclusion -Path '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
-			if ($SRP.DataObject.Error)
-			{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-			else
-			{
-				$script:ASRExclCache += $P
-				Update-ASRExclView
-				$StatusLabel.Text = "Added exclusion: $P"
-			}
-		}
-		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-	}
-})
-
-# Double-click to edit an existing exclusion
-$LvExcl.Add_DoubleClick({
-	$Li = $LvExcl.FocusedItem
-	if (-not $Li) { return }
-	$OldPath = $Li.Text
-	$NewPath = Show-ExclPathDialog 'Edit ASR Exclusion' $OldPath
-	if ($NewPath -and $NewPath -ne $OldPath)
-	{
-		try
-		{
-			$SRP        = Get-CDSRP
-			$EscOld     = $OldPath -replace "'", "''"
-			$EscNew     = $NewPath -replace "'", "''"
-			$SRP.DataObject = "Set-CDASRExclusion -Path '$EscOld' -Remove" | Send-Request @SRP -NoExitOnError
-			if ($SRP.DataObject.Error)
-			{ $StatusLabel.Text = "Error removing old path: $($SRP.DataObject.Error)"; return }
-			$SRP.DataObject = "Set-CDASRExclusion -Path '$EscNew' -Add" | Send-Request @SRP -NoExitOnError
-			if ($SRP.DataObject.Error)
-			{ $StatusLabel.Text = "Error adding new path: $($SRP.DataObject.Error)"; return }
-			# Update cache and view
-			$script:ASRExclCache = $script:ASRExclCache | Where-Object { $_ -ne $OldPath }
-			$script:ASRExclCache += $NewPath
-			Update-ASRExclView
-			$StatusLabel.Text = "Updated exclusion: $NewPath"
-		}
-		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-	}
-})
-
-$TsBtnExclRemove.Add_Click({
-	$Selected = @($LvExcl.SelectedItems)
-	if ($Selected.Count -eq 0) { $StatusLabel.Text = 'No items selected.'; return }
-	try
-	{
-		$SRP      = Get-CDSRP
-		$Ok       = 0
-		$ErrCount = 0
-		foreach ($Li in $Selected)
-		{
-			$P       = $Li.Text
-			$Escaped = $P -replace "'", "''"
-			$SRP.DataObject = "Set-CDASRExclusion -Path '$Escaped' -Remove" | Send-Request @SRP -NoExitOnError
-			if ($SRP.DataObject.Error)
-			{ $ErrCount++; $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-			else
-			{ $LvExcl.Items.Remove($Li); $Ok++ }
-		}
-		if ($ErrCount -eq 0) { $StatusLabel.Text = "Removed $Ok exclusion(s)." }
-		else { $StatusLabel.Text = "Removed $Ok, $ErrCount error(s)." }
-	}
-	catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-})
-#endregion
-
-#region Tab 3 - Controlled Folders
-$TabCF = New-Tab 'Controlled Folders'
-
-$ToolStripCF      = New-Object System.Windows.Forms.ToolStrip
-$ToolStripCF.Dock = 'Top'
-
-$TsBtnCFRefresh              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnCFRefresh.Text         = 'Refresh'
-$TsBtnCFRefresh.DisplayStyle = 'Text'
-$ToolStripCF.Items.Add($TsBtnCFRefresh) | Out-Null
-
-$TsBtnCFAdd              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnCFAdd.Text         = 'Add'
-$TsBtnCFAdd.DisplayStyle = 'Text'
-$ToolStripCF.Items.Add($TsBtnCFAdd) | Out-Null
-
-$TsBtnCFRemove              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnCFRemove.Text         = 'Remove Selected'
-$TsBtnCFRemove.DisplayStyle = 'Text'
-$ToolStripCF.Items.Add($TsBtnCFRemove) | Out-Null
-
-$LvCF               = New-Object System.Windows.Forms.ListView
-$LvCF.Dock          = 'Fill'
-$LvCF.View          = 'Details'
-$LvCF.FullRowSelect = $true
-$LvCF.GridLines     = $true
-$LvCF.MultiSelect   = $true
-$LvCF.Columns.Add('Folder', 800) | Out-Null
-$LvCF.Add_SizeChanged({
-	$w = $LvCF.ClientSize.Width - 22
-	if ($w -gt 100) { $LvCF.Columns[0].Width = $w }
-})
-
-$TabCF.Controls.Add($LvCF)
-$TabCF.Controls.Add($ToolStripCF)
-
-$TsBtnCFRefresh.Add_Click({
-	$LvCF.Items.Clear()
-	try
-	{
-		$Folders = Get-CDControlledFolders
-		foreach ($F in $Folders)
-		{ $LvCF.Items.Add((New-Object System.Windows.Forms.ListViewItem($F))) | Out-Null }
-		$StatusLabel.Text = "Controlled Folders loaded ($(@($Folders).Count) entries)."
-	}
-	catch { $StatusLabel.Text = 'Error loading Controlled Folders: ' + $_.Exception.Message }
-})
-
-$TsBtnCFAdd.Add_Click({
-	$FBD = New-Object System.Windows.Forms.FolderBrowserDialog
-	$FBD.Description      = 'Select a folder to protect with Controlled Folder Access'
-	$FBD.ShowNewFolderButton = $false
-	if ($FBD.ShowDialog($Form) -eq 'OK')
-	{
-		$F = $FBD.SelectedPath
-		try
-		{
-			$SRP     = Get-CDSRP
-			$Escaped = $F -replace "'", "''"
-			$SRP.DataObject = "Set-CDControlledFolder -Folder '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
-			if ($SRP.DataObject.Error)
-			{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-			else
-			{
-				$LvCF.Items.Add((New-Object System.Windows.Forms.ListViewItem($F))) | Out-Null
-				$StatusLabel.Text = "Added protected folder: $F"
-			}
-		}
-		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-	}
-})
-
-$TsBtnCFRemove.Add_Click({
-	$Selected = @($LvCF.SelectedItems)
-	if ($Selected.Count -eq 0) { $StatusLabel.Text = 'No items selected.'; return }
-	try
-	{
-		$SRP      = Get-CDSRP
-		$Ok       = 0
-		$ErrCount = 0
-		foreach ($Li in $Selected)
-		{
-			$F       = $Li.Text
-			$Escaped = $F -replace "'", "''"
-			$SRP.DataObject = "Set-CDControlledFolder -Folder '$Escaped' -Remove" | Send-Request @SRP -NoExitOnError
-			if ($SRP.DataObject.Error)
-			{ $ErrCount++; $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-			else
-			{ $LvCF.Items.Remove($Li); $Ok++ }
-		}
-		if ($ErrCount -eq 0) { $StatusLabel.Text = "Removed $Ok folder(s)." }
-		else { $StatusLabel.Text = "Removed $Ok, $ErrCount error(s)." }
-	}
-	catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-})
-#endregion
-
-#region Tab 4 - Allowed Applications
-$TabApps = New-Tab 'Allowed Apps'
-
-$ToolStripApps      = New-Object System.Windows.Forms.ToolStrip
-$ToolStripApps.Dock = 'Top'
-
-$TsBtnAppsRefresh              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnAppsRefresh.Text         = 'Refresh'
-$TsBtnAppsRefresh.DisplayStyle = 'Text'
-$ToolStripApps.Items.Add($TsBtnAppsRefresh) | Out-Null
-
-$TsBtnAppsAdd              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnAppsAdd.Text         = 'Add'
-$TsBtnAppsAdd.DisplayStyle = 'Text'
-$ToolStripApps.Items.Add($TsBtnAppsAdd) | Out-Null
-
-$TsBtnAppsRemove              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnAppsRemove.Text         = 'Remove'
-$TsBtnAppsRemove.DisplayStyle = 'Text'
-$ToolStripApps.Items.Add($TsBtnAppsRemove) | Out-Null
-
-$TsBtnAppsRemoveMissing              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnAppsRemoveMissing.Text         = 'Rm Missing'
-$TsBtnAppsRemoveMissing.DisplayStyle = 'Text'
-$ToolStripApps.Items.Add($TsBtnAppsRemoveMissing) | Out-Null
-
-$ToolStripApps.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
-$ToolStripApps.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('Filter:'))) | Out-Null
-
-$AppsFilterBox           = New-Object System.Windows.Forms.TextBox
-$AppsFilterHost          = New-Object System.Windows.Forms.ToolStripControlHost($AppsFilterBox)
-$AppsFilterHost.AutoSize = $false
-$AppsFilterHost.Size     = New-Object System.Drawing.Size(160, 22)
-$ToolStripApps.Items.Add($AppsFilterHost) | Out-Null
-
-$LvApps               = New-Object System.Windows.Forms.ListView
-$LvApps.Dock          = 'Fill'
-$LvApps.View          = 'Details'
-$LvApps.FullRowSelect = $true
-$LvApps.GridLines     = $true
-$LvApps.MultiSelect   = $true
-$LvApps.Columns.Add('Status',  60) | Out-Null
-$LvApps.Columns.Add('Path',   700) | Out-Null
-$LvApps.Add_SizeChanged({
-	$w = $LvApps.ClientSize.Width - 60 - 22
-	if ($w -gt 100) { $LvApps.Columns[1].Width = $w }
-})
-
-$TabApps.Controls.Add($LvApps)
-$TabApps.Controls.Add($ToolStripApps)
-
-function Update-AllowedAppsView
-{
-	$LvApps.Items.Clear()
-	if (-not $script:AllowedAppsCache) { return }
-	$Filter  = $AppsFilterBox.Text.Trim()
-	$ToShow  = if ($Filter) { $script:AllowedAppsCache | Where-Object { $_ -ilike "*$Filter*" } } else { $script:AllowedAppsCache }
-	foreach ($A in $ToShow)
-	{
-		$Exists = Test-Path -Path $A
-		$Li     = New-Object System.Windows.Forms.ListViewItem($(if ($Exists) { 'OK' } else { 'Missing' }))
-		$Li.SubItems.Add($A) | Out-Null
-		$Li.ForeColor = if ($Exists) { [System.Drawing.Color]::Black } else { [System.Drawing.Color]::Red }
-		$LvApps.Items.Add($Li) | Out-Null
-	}
-	$Count = @($ToShow).Count
-	$Total = $script:AllowedAppsCache.Count
-	$StatusLabel.Text = if ($Filter) { "Allowed Applications: $Count of $Total shown." } else { "Allowed Applications loaded ($Total entries)." }
-}
-
-$TsBtnAppsRefresh.Add_Click({
-	try
-	{
-		$SRP = Get-CDSRP
-		$SRP.DataObject = 'Get-CDAllowedApplications' | Send-Request @SRP -NoExitOnError
-		if ($SRP.DataObject.Error)
-		{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
-		$script:AllowedAppsCache = @($SRP.DataObject.Result)
-		Update-AllowedAppsView
-	}
-	catch { $StatusLabel.Text = 'Error loading Allowed Applications: ' + $_.Exception.Message }
-})
-
-$AppsFilterBox.Add_TextChanged({ Update-AllowedAppsView })
-
-$TsBtnAppsAdd.Add_Click({
-	$OFD        = New-Object System.Windows.Forms.OpenFileDialog
-	$OFD.Title  = 'Select an application to allow through Controlled Folder Access'
-	$OFD.Filter = 'Executable files (*.exe)|*.exe|All files (*.*)|*.*'
-	if ($OFD.ShowDialog($Form) -eq 'OK')
-	{
-		$A = $OFD.FileName
-		try
-		{
-			$SRP     = Get-CDSRP
-			$Escaped = $A -replace "'", "''"
-			$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
-			if ($SRP.DataObject.Error)
-			{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-			else
-			{
-				$Li = New-Object System.Windows.Forms.ListViewItem('OK')
-				$Li.SubItems.Add($A) | Out-Null
-				$LvApps.Items.Add($Li) | Out-Null
-				$StatusLabel.Text = "Added allowed application: $A"
-			}
-		}
-		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-	}
-})
-
-$TsBtnAppsRemove.Add_Click({
-	$Selected = @($LvApps.SelectedItems)
-	if ($Selected.Count -eq 0) { $StatusLabel.Text = 'No items selected.'; return }
-	try
-	{
-		$SRP      = Get-CDSRP
-		$Ok       = 0
-		$ErrCount = 0
-		foreach ($Li in $Selected)
-		{
-			$A       = $Li.SubItems[1].Text
-			$Escaped = $A -replace "'", "''"
-			$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Remove" | Send-Request @SRP -NoExitOnError
-			if ($SRP.DataObject.Error)
-			{ $ErrCount++; $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-			else
-			{ $LvApps.Items.Remove($Li); $Ok++ }
-		}
-		if ($ErrCount -eq 0) { $StatusLabel.Text = "Removed $Ok application(s)." }
-		else { $StatusLabel.Text = "Removed $Ok, $ErrCount error(s)." }
-	}
-	catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-})
-
-$TsBtnAppsRemoveMissing.Add_Click({
-	try
-	{
-		$SRP = Get-CDSRP
-		$SRP.DataObject = 'Set-CDAllowedApplication -RemoveMissing' | Send-Request @SRP -NoExitOnError
-		if ($SRP.DataObject.Error)
-		{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-		else
-		{
-			$StatusLabel.Text = 'Missing applications removed.'
-			$TsBtnAppsRefresh.PerformClick()
-		}
-	}
-	catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-})
-#endregion
-
-#region Tab 5 - Network Protection
-$TabNP   = New-Tab 'Network Protection'
-$PanelNP = New-Object System.Windows.Forms.Panel
-$PanelNP.Dock = 'Fill'
-$TabNP.Controls.Add($PanelNP)
-
-$LblNPState           = New-Object System.Windows.Forms.Label
-$LblNPState.Text      = 'Current state: (click Refresh)'
-$LblNPState.Font      = New-Object System.Drawing.Font('Segoe UI', 10, [System.Drawing.FontStyle]::Bold)
-$LblNPState.Location  = New-Object System.Drawing.Point(16, 16)
-$LblNPState.AutoSize  = $true
-
-$RbNPDisabled          = New-Object System.Windows.Forms.RadioButton
-$RbNPDisabled.Text     = 'Disabled'
-$RbNPDisabled.Tag      = 'Disable'
-$RbNPDisabled.Location = New-Object System.Drawing.Point(16, 50)
-$RbNPDisabled.AutoSize = $true
-
-$RbNPAudit          = New-Object System.Windows.Forms.RadioButton
-$RbNPAudit.Text     = 'Audit Mode'
-$RbNPAudit.Tag      = 'Audit'
-$RbNPAudit.Location = New-Object System.Drawing.Point(16, 75)
-$RbNPAudit.AutoSize = $true
-
-$RbNPEnabled          = New-Object System.Windows.Forms.RadioButton
-$RbNPEnabled.Text     = 'Enabled'
-$RbNPEnabled.Tag      = 'Enable'
-$RbNPEnabled.Location = New-Object System.Drawing.Point(16, 100)
-$RbNPEnabled.AutoSize = $true
-
-$BtnNPRefresh          = New-Object System.Windows.Forms.Button
-$BtnNPRefresh.Text     = 'Refresh'
-$BtnNPRefresh.Location = New-Object System.Drawing.Point(16, 135)
-$BtnNPRefresh.Size     = New-Object System.Drawing.Size(80, 28)
-
-$BtnNPApply          = New-Object System.Windows.Forms.Button
-$BtnNPApply.Text     = 'Apply'
-$BtnNPApply.Location = New-Object System.Drawing.Point(104, 135)
-$BtnNPApply.Size     = New-Object System.Drawing.Size(80, 28)
-
-$PanelNP.Controls.AddRange(@($LblNPState, $RbNPDisabled, $RbNPAudit, $RbNPEnabled, $BtnNPRefresh, $BtnNPApply))
-
-# Map NP integer value -> RadioButton
-$NPRadioMap = @{ 0 = $RbNPDisabled; 1 = $RbNPEnabled; 2 = $RbNPAudit }
-
-$BtnNPRefresh.Add_Click({
-	try
-	{
-		$State = Get-CDNetworkProtection
-		$LblNPState.Text = "Current state: $($State.Description)"
-		$Rb = $NPRadioMap[$State.Value]
-		if ($Rb) { $Rb.Checked = $true }
-		else { foreach ($R in $NPRadioMap.Values) { $R.Checked = $false } }
-		$StatusLabel.Text = "Network Protection: $($State.Description)"
-	}
-	catch { $StatusLabel.Text = 'Error loading Network Protection: ' + $_.Exception.Message }
-})
-
-$BtnNPApply.Add_Click({
-	$Rb = @($RbNPDisabled, $RbNPAudit, $RbNPEnabled) | Where-Object { $_.Checked } | Select-Object -First 1
-	if (-not $Rb) { $StatusLabel.Text = 'No option selected.'; return }
-	try
-	{
-		$SRP = Get-CDSRP
-		$SRP.DataObject = "Set-CDNetworkProtection -$($Rb.Tag)" | Send-Request @SRP -NoExitOnError
-		if ($SRP.DataObject.Error)
-		{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-		else
-		{
-			$StatusLabel.Text = "Network Protection set to: $($Rb.Text)"
-			$BtnNPRefresh.PerformClick()
-		}
-	}
-	catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-})
-#endregion
-
-#region Tab 6 - CFA State
-$TabCFA   = New-Tab 'CFA State'
-$PanelCFA = New-Object System.Windows.Forms.Panel
-$PanelCFA.Dock = 'Fill'
-$TabCFA.Controls.Add($PanelCFA)
-
-$LblCFAState           = New-Object System.Windows.Forms.Label
-$LblCFAState.Text      = 'Current state: (click Refresh)'
-$LblCFAState.Font      = New-Object System.Drawing.Font('Segoe UI', 10, [System.Drawing.FontStyle]::Bold)
-$LblCFAState.Location  = New-Object System.Drawing.Point(16, 16)
-$LblCFAState.AutoSize  = $true
-
-$RbCFADisabled          = New-Object System.Windows.Forms.RadioButton
-$RbCFADisabled.Text     = 'Disabled'
-$RbCFADisabled.Tag      = 'Disable'
-$RbCFADisabled.Location = New-Object System.Drawing.Point(16, 50)
-$RbCFADisabled.AutoSize = $true
-
-$RbCFAAudit          = New-Object System.Windows.Forms.RadioButton
-$RbCFAAudit.Text     = 'Audit Mode'
-$RbCFAAudit.Tag      = 'Audit'
-$RbCFAAudit.Location = New-Object System.Drawing.Point(16, 75)
-$RbCFAAudit.AutoSize = $true
-
-$RbCFAEnabled          = New-Object System.Windows.Forms.RadioButton
-$RbCFAEnabled.Text     = 'Enabled'
-$RbCFAEnabled.Tag      = 'Enable'
-$RbCFAEnabled.Location = New-Object System.Drawing.Point(16, 100)
-$RbCFAEnabled.AutoSize = $true
-
-$LblCFANote           = New-Object System.Windows.Forms.Label
-$LblCFANote.Text      = 'Note: Block/Audit Disk Modification states (values 3/4) are shown read-only when active.'
-$LblCFANote.ForeColor = [System.Drawing.Color]::DimGray
-$LblCFANote.Location  = New-Object System.Drawing.Point(16, 126)
-$LblCFANote.AutoSize  = $true
-
-$BtnCFARefresh          = New-Object System.Windows.Forms.Button
-$BtnCFARefresh.Text     = 'Refresh'
-$BtnCFARefresh.Location = New-Object System.Drawing.Point(16, 150)
-$BtnCFARefresh.Size     = New-Object System.Drawing.Size(80, 28)
-
-$BtnCFAApply          = New-Object System.Windows.Forms.Button
-$BtnCFAApply.Text     = 'Apply'
-$BtnCFAApply.Location = New-Object System.Drawing.Point(104, 150)
-$BtnCFAApply.Size     = New-Object System.Drawing.Size(80, 28)
-
-$PanelCFA.Controls.AddRange(@($LblCFAState, $RbCFADisabled, $RbCFAAudit, $RbCFAEnabled, $LblCFANote, $BtnCFARefresh, $BtnCFAApply))
-
-# Map CFA integer value -> RadioButton (only values 0-2 are settable)
-$CFARadioMap = @{ 0 = $RbCFADisabled; 1 = $RbCFAEnabled; 2 = $RbCFAAudit }
-
-$BtnCFARefresh.Add_Click({
-	try
-	{
-		$State = Get-CDControlledFolderAccess
-		$LblCFAState.Text = "Current state: $($State.Description)"
-		$Rb = $CFARadioMap[$State.Value]
-		if ($Rb) { $Rb.Checked = $true }
-		else { foreach ($R in $CFARadioMap.Values) { $R.Checked = $false } }
-		$StatusLabel.Text = "CFA State: $($State.Description)"
-	}
-	catch { $StatusLabel.Text = 'Error loading CFA State: ' + $_.Exception.Message }
-})
-
-$BtnCFAApply.Add_Click({
-	$Rb = @($RbCFADisabled, $RbCFAAudit, $RbCFAEnabled) | Where-Object { $_.Checked } | Select-Object -First 1
-	if (-not $Rb) { $StatusLabel.Text = 'No option selected.'; return }
-	try
-	{
-		$SRP = Get-CDSRP
-		$SRP.DataObject = "Set-CDControlledFolderAccess -$($Rb.Tag)" | Send-Request @SRP -NoExitOnError
-		if ($SRP.DataObject.Error)
-		{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-		else
-		{
-			$StatusLabel.Text = "CFA State set to: $($Rb.Text)"
-			$BtnCFARefresh.PerformClick()
-		}
-	}
-	catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-})
-#endregion
-
-#region Tab 7 - Events
-$TabEvents = New-Tab 'Events'
-
-$ToolStripEvents      = New-Object System.Windows.Forms.ToolStrip
-$ToolStripEvents.Dock = 'Top'
-
-$TsBtnEvRefresh              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnEvRefresh.Text         = 'Refresh'
-$TsBtnEvRefresh.DisplayStyle = 'Text'
-$ToolStripEvents.Items.Add($TsBtnEvRefresh) | Out-Null
-
-$TsBtnEvAdd              = New-Object System.Windows.Forms.ToolStripButton
-$TsBtnEvAdd.Text         = 'Add Path'
-$TsBtnEvAdd.DisplayStyle = 'Text'
-$ToolStripEvents.Items.Add($TsBtnEvAdd) | Out-Null
-
-$ToolStripEvents.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
-$ToolStripEvents.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('  Filter:'))) | Out-Null
-
-$TsCmbEvFilter               = New-Object System.Windows.Forms.ToolStripComboBox
-$TsCmbEvFilter.DropDownStyle = 'DropDownList'
-$TsCmbEvFilter.Width         = 70
-$TsCmbEvFilter.Items.AddRange(@('All', 'ASR', 'CFA'))
-$TsCmbEvFilter.SelectedIndex = 0
-$ToolStripEvents.Items.Add($TsCmbEvFilter) | Out-Null
-
-$ToolStripEvents.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
-$ToolStripEvents.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('Since:'))) | Out-Null
-
-$TsCmbEvSince               = New-Object System.Windows.Forms.ToolStripComboBox
-$TsCmbEvSince.DropDownStyle = 'DropDownList'
-$TsCmbEvSince.Width         = 100
-$TsCmbEvSince.Items.AddRange(@('Since Boot', 'Today', 'Yesterday', 'Custom Date'))
-$TsCmbEvSince.SelectedIndex = 0
-$ToolStripEvents.Items.Add($TsCmbEvSince) | Out-Null
-
-$EvDatePicker            = New-Object System.Windows.Forms.DateTimePicker
-$EvDatePicker.Format     = [System.Windows.Forms.DateTimePickerFormat]::Short
-$EvDatePicker.Value      = [datetime]::Today
-$EvDatePickerHost          = New-Object System.Windows.Forms.ToolStripControlHost($EvDatePicker)
-$EvDatePickerHost.AutoSize = $false
-$EvDatePickerHost.Size     = New-Object System.Drawing.Size(100, 22)
-$EvDatePickerHost.Visible  = $false
-$ToolStripEvents.Items.Add($EvDatePickerHost) | Out-Null
-
-$TsCmbEvSince.Add_SelectedIndexChanged({
-	$EvDatePickerHost.Visible = ($TsCmbEvSince.SelectedItem -eq 'Custom Date')
-})
-
-$LvEvents               = New-Object System.Windows.Forms.ListView
-$LvEvents.Dock          = 'Fill'
-$LvEvents.View          = 'Details'
-$LvEvents.FullRowSelect = $true
-$LvEvents.GridLines     = $true
-$LvEvents.Columns.Add('Time',        145) | Out-Null
-$LvEvents.Columns.Add('Type',        175) | Out-Null
-$LvEvents.Columns.Add('ProcessName', 200) | Out-Null
-$LvEvents.Columns.Add('Path',        260) | Out-Null
-$LvEvents.Columns.Add('Rule',        180) | Out-Null
-$LvEvents.Add_SizeChanged({
-	$w = $LvEvents.ClientSize.Width - 145 - 175 - 200 - 260 - 22
-	if ($w -gt 60) { $LvEvents.Columns[4].Width = $w }
-})
-
-$TabEvents.Controls.Add($LvEvents)
-$TabEvents.Controls.Add($ToolStripEvents)
-
-$TsBtnEvRefresh.Add_Click({
-	$LvEvents.Items.Clear()
-	try
-	{
-		$FilterVal = $TsCmbEvFilter.SelectedItem.ToString()
-		$Since     = switch ($TsCmbEvSince.SelectedItem.ToString())
-		{
-			'Today'       { [datetime]::Today }
-			'Yesterday'   { [datetime]::Today.AddDays(-1) }
-			'Custom Date' { $EvDatePicker.Value.Date }
-			default       { $null }  # Since Boot - Get-CDEvents default
-		}
-		$Events = if ($Since) { Get-CDEvents -Filter $FilterVal -Since $Since }
-		          else         { Get-CDEvents -Filter $FilterVal }
-		foreach ($Ev in $Events)
-		{
-			$Li = New-Object System.Windows.Forms.ListViewItem($Ev.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'))
-			$Li.SubItems.Add($Ev.EventType)                                           | Out-Null
-			$Li.SubItems.Add($(if ($Ev.ProcessName) { $Ev.ProcessName } else { '' })) | Out-Null
-			$Li.SubItems.Add($(if ($Ev.Path)        { $Ev.Path }        else { '' })) | Out-Null
-			$Li.SubItems.Add($(if ($Ev.RuleInfo)    { $Ev.RuleInfo }    else { '' })) | Out-Null
-			if ($Ev.EventID -eq '1123') { $Li.ForeColor = [System.Drawing.Color]::DarkBlue }
-			$LvEvents.Items.Add($Li) | Out-Null
-		}
-		$StatusLabel.Text = "Events loaded ($(@($Events).Count) events)."
-	}
-	catch { $StatusLabel.Text = 'Error loading Events: ' + $_.Exception.Message }
-})
-
-$TsBtnEvAdd.Add_Click({
-	if ($LvEvents.SelectedItems.Count -ne 1) { $StatusLabel.Text = 'Select exactly one event row.'; return }
-	$Li       = $LvEvents.SelectedItems[0]
-	$EvType   = $Li.SubItems[1].Text  # 'Attack Surface Reduction' or 'Controlled Folder Access'
-	$ProcName = $Li.SubItems[2].Text
-	$Path     = $Li.SubItems[3].Text
-
-	if ($EvType -eq 'Attack Surface Reduction')
-	{
-		# Pre-fill the ASR Exclusion dialog with the blocked path
-		$PathToAdd = Show-ExclPathDialog 'Add ASR Exclusion from Event' $Path
-		if ($PathToAdd)
-		{
-			try
-			{
-				$SRP     = Get-CDSRP
-				$Escaped = $PathToAdd -replace "'", "''"
-				$SRP.DataObject = "Set-CDASRExclusion -Path '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
-				if ($SRP.DataObject.Error)
-				{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-				else
-				{
-					$script:ASRExclCache += $PathToAdd
-					$StatusLabel.Text = "Added ASR exclusion: $PathToAdd"
-				}
-			}
-			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-		}
-	}
-	elseif ($EvType -eq 'Controlled Folder Access')
-	{
-		if (-not $ProcName) { $StatusLabel.Text = 'No process name in this event.'; return }
-		$Confirm = [System.Windows.Forms.MessageBox]::Show(
-			"Add to Allowed Applications:`n`n$ProcName",
-			'Add Allowed Application',
-			[System.Windows.Forms.MessageBoxButtons]::OKCancel,
-			[System.Windows.Forms.MessageBoxIcon]::Question
-		)
-		if ($Confirm -eq 'OK')
-		{
-			try
-			{
-				$SRP     = Get-CDSRP
-				$Escaped = $ProcName -replace "'", "''"
-				$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
-				if ($SRP.DataObject.Error)
-				{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-				else
-				{
-					$script:AllowedAppsCache += $ProcName
-					$StatusLabel.Text = "Added allowed application: $ProcName"
-				}
-			}
-			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-		}
-	}
-	else
-	{ $StatusLabel.Text = 'Unknown event type — cannot add.' }
-})
-#endregion
+# Shared helpers (dialogs + validators) - must be first
+. "$PSScriptRoot\GUI-Helpers.ps1"
+
+# Tab sections — Settings is first (leftmost, default tab)
+. "$PSScriptRoot\GUI-Tab-Settings.ps1"
+. "$PSScriptRoot\GUI-Tab-ASR.ps1"
+. "$PSScriptRoot\GUI-Tab-Exclusions.ps1"
+. "$PSScriptRoot\GUI-Tab-CFA.ps1"
+. "$PSScriptRoot\GUI-Tab-ThreatEvents.ps1"
 
 #region Initial Load
-$Form.Add_Shown({
-	$TsBtnRefresh.PerformClick()
+$TabControl.Add_SelectedIndexChanged({
+	$StatusLabel.Text = 'Loading...'
+	$Form.UseWaitCursor = $true
+	[System.Windows.Forms.Application]::DoEvents()
+	try
+	{
+		switch ($TabControl.SelectedIndex)
+		{
+			0 { $TsBtnSettingsRefresh.PerformClick() }
+			1 { $TsBtnRefresh.PerformClick() }
+			2 {
+				# Exclusions: update view from cache only — do not open the pipe until
+				# the user explicitly clicks a category button or Refresh
+				switch ($script:ExclCategory)
+				{
+					'ASR'  { Update-ExclASRView }
+					'Proc' { Update-ExclProcView }
+					'Path' { Update-ExclPathView }
+					'Ext'  { Update-ExclExtView }
+					'IP'   { Update-ExclIPView }
+				}
+			}
+			3 { $TsBtnCFRefresh.PerformClick() }
+			4 { $TsBtnThreatRefresh.PerformClick() }
+			5 { $TsBtnEvRefresh.PerformClick() }
+		}
+	}
+	finally
+	{
+		$Form.UseWaitCursor = $false
+		[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
+	}
 })
+$Form.Add_Shown({ $TsBtnSettingsRefresh.PerformClick() })
 #endregion
 
 # Show the form

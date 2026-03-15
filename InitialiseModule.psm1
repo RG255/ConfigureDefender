@@ -204,6 +204,8 @@ try
 		default
 		{ throw 'ConfigureDefender requires Windows.' }
 	}
+
+	Write-Host 'ConfigureDefender loaded. To use run: Start-ConfigureDefenderGUI'
 }
 catch
 {

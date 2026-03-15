@@ -4,9 +4,6 @@
 # Claude session notes / memory files
 Notes/
 
-# Original reference script (third-party, not our code)
-Originals/
-
 # Build utility - local only
 CreateModuleManifest.ps1
 

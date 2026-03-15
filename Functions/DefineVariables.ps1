@@ -62,10 +62,22 @@ $script:FunctionExportTable = @{
 	'Get-CDNetworkProtection'      = $true
 	'Get-CDControlledFolderAccess' = $true
 	'Get-CDASRExclusions'          = $true
+	'Get-CDExclusionProcesses'     = $true
+	'Get-CDExclusionPaths'         = $true
+	'Get-CDExclusionExtensions'    = $true
+	'Get-CDExclusionIpAddresses'   = $true
 	'Get-CDAllowedApplications'    = $true
+	'Get-CDSettings'               = $true
+	'Get-CDThreatActions'          = $true
 	# Write functions - must run elevated via NamedPipe
 	'Set-CDASRRule'                = $true
 	'Set-CDASRExclusion'           = $true
+	'Set-CDExclusionProcess'       = $true
+	'Set-CDExclusionPath'          = $true
+	'Set-CDExclusionExtension'     = $true
+	'Set-CDExclusionIpAddress'     = $true
+	'Set-CDSetting'                = $true
+	'Set-CDThreatAction'           = $true
 	'Set-CDControlledFolder'       = $true
 	'Set-CDAllowedApplication'     = $true
 	'Set-CDControlledFolderAccess' = $true
@@ -73,6 +85,9 @@ $script:FunctionExportTable = @{
 	# Pipe session management - GUI process only
 	'Open-CDPipeSession'           = $true
 	'Close-CDPipeSession'          = $true
+	'Get-CDSendRequestParams'      = $true
+	# GUI launcher
+	'Start-ConfigureDefenderGUI'   = $true
 }
 
 #
