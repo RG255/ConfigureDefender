@@ -205,7 +205,11 @@ try
 		{ throw 'ConfigureDefender requires Windows.' }
 	}
 
-	Write-Host 'ConfigureDefender loaded. To use run: Start-ConfigureDefenderGUI'
+	if (-not $global:CDModuleMessageShown)
+	{
+		Write-Host 'ConfigureDefender loaded. To use run: Start-ConfigureDefenderGUI'
+		$global:CDModuleMessageShown = $true
+	}
 }
 catch
 {
