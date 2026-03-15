@@ -33,10 +33,11 @@ Function Open-CDPipeSession
 	{ return }
 
 	$PipeOptions = @{
-		AdminRequired = $true
-		WindowStyle   = 'Hidden'
-		InfoDisplay   = 1
-		ModuleToLoad  = @{
+		AdminRequired        = $true
+		WindowStyle          = 'Hidden'
+		InfoDisplay          = 1
+		ClientConnectTimeout = 30000   # ms; default 10000 is too short when UAC + module load are in the path
+		ModuleToLoad         = @{
 			Name    = 'ConfigureDefender'
 			Version = $ModuleVersion
 		}
