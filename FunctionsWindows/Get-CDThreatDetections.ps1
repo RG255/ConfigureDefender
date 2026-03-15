@@ -88,7 +88,7 @@ Function Get-CDThreatDetections
 		$EId    = [int]$_.CurrentThreatExecutionStatusID
 
 		[PSCustomObject]@{
-			Detected      = $_.InitialDetectionTime
+			Detected      = if ($_.InitialDetectionTime) { $_.InitialDetectionTime } else { $_.LastThreatStatusChangeTime }
 			ThreatName    = if ($Info) { $Info.ThreatName } else { "Unknown (ID $TID)" }
 			Severity      = if ($Info -and $SeverityMap.ContainsKey([int]$Info.SeverityID))  { $SeverityMap[[int]$Info.SeverityID]  } else { 'Unknown' }
 			Category      = if ($Info -and $CategoryMap.ContainsKey([int]$Info.CategoryID))  { $CategoryMap[[int]$Info.CategoryID]  } else { 'Unknown' }
