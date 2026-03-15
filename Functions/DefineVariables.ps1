@@ -111,6 +111,8 @@ $script:ASRRules = [ordered]@{
 	'd3e037e1-3eb8-44c8-a917-57927947596d' = 'Block JavaScript or VBScript from launching downloaded executable content'
 	'd4f940ab-401b-4efc-aadc-ad5f3c50688a' = 'Block all Office applications from creating child processes'
 	'e6db77e5-3df2-4cf1-b95a-636979351e5b' = 'Block persistence through WMI event subscription'
+	# Preview rules - not yet in stable Windows 10 release
+	'c0033c00-d16d-4114-a5a0-5c8d8c0b966c' = 'Block use of copied or impersonated system tools (Preview)'
 }
 
 #

@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- (work in progress)
+- ASR rule table: added C0033C00 - Block use of copied or impersonated system tools (Preview rule, not yet in stable Windows 10 release)
 
 ## [0.1] - 2026-03-15
 

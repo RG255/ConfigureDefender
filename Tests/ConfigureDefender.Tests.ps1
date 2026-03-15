@@ -77,9 +77,9 @@ Describe 'Module Import' {
 
 # ============================================================
 Describe 'Data Structures' {
-	It 'ASRRules should contain exactly 16 entries' {
+	It 'ASRRules should contain exactly 17 entries' {
 		$Rules = (Get-Module ConfigureDefender).Invoke({ $script:ASRRules })
-		$Rules.Count | Should -Be 16
+		$Rules.Count | Should -Be 17
 	}
 
 	It 'ASRRules keys should all be lowercase GUIDs' {
@@ -143,8 +143,8 @@ Describe 'Get-CDASRRules' {
 		Mock -ModuleName ConfigureDefender Get-MpPreference { return $Script:MpPref }
 	}
 
-	It 'Should return exactly 16 objects' {
-		@(Get-CDASRRules).Count | Should -Be 16
+	It 'Should return exactly 17 objects' {
+		@(Get-CDASRRules).Count | Should -Be 17
 	}
 
 	It 'Each object should have GUID, Action, Description properties' {
@@ -382,9 +382,9 @@ Describe 'Set-CDASRRule' {
 		Should -Invoke Add-MpPreference -ModuleName ConfigureDefender -Times 1
 	}
 
-	It 'AddAll: should call Add-MpPreference once per rule (16 times)' {
+	It 'AddAll: should call Add-MpPreference once per rule (17 times)' {
 		Set-CDASRRule -AddAll -Action Disabled
-		Should -Invoke Add-MpPreference -ModuleName ConfigureDefender -Times 16
+		Should -Invoke Add-MpPreference -ModuleName ConfigureDefender -Times 17
 	}
 
 	It 'Remove: should call Remove-MpPreference with the given GUID' {
