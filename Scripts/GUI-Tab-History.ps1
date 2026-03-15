@@ -176,13 +176,13 @@ $TsBtnHistRefresh.Add_Click({
 			$ProcStr = if ($D.ProcessName) { Split-Path $D.ProcessName -Leaf } else { '' }
 
 			$Li = New-Object System.Windows.Forms.ListViewItem($DetStr)
-			$Li.SubItems.Add($D.ThreatName)    | Out-Null
-			$Li.SubItems.Add($D.Severity)      | Out-Null
-			$Li.SubItems.Add($D.Status)        | Out-Null
-			$Li.SubItems.Add($D.Action)        | Out-Null
-			$Li.SubItems.Add($D.Source)        | Out-Null
-			$Li.SubItems.Add($D.User)          | Out-Null
-			$Li.SubItems.Add($ProcStr)         | Out-Null
+			$Li.SubItems.Add([string]$D.ThreatName) | Out-Null
+			$Li.SubItems.Add([string]$D.Severity)   | Out-Null
+			$Li.SubItems.Add([string]$D.Status)     | Out-Null
+			$Li.SubItems.Add([string]$D.Action)     | Out-Null
+			$Li.SubItems.Add([string]$D.Source)     | Out-Null
+			$Li.SubItems.Add([string]$D.User)       | Out-Null
+			$Li.SubItems.Add($ProcStr)              | Out-Null
 			$Li.ForeColor = Get-HistItemColor -Status $D.Status -ActionSuccess $D.ActionSuccess -IsActive $D.IsActive
 			$Li.Tag       = $D
 			$LvHist.Items.Add($Li) | Out-Null
