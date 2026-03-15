@@ -61,7 +61,7 @@ Describe 'Module Import' {
 			'Get-CDASRExclusions', 'Get-CDExclusionProcesses',
 			'Get-CDExclusionPaths', 'Get-CDExclusionExtensions',
 			'Get-CDExclusionIpAddresses', 'Get-CDAllowedApplications',
-			'Get-CDSettings', 'Get-CDThreatActions', 'Get-CDSendRequestParams',
+			'Get-CDSettings', 'Get-CDThreatActions', 'Get-CDThreatDetections', 'Get-CDSendRequestParams',
 			'Set-CDASRRule', 'Set-CDASRExclusion', 'Set-CDExclusionProcess',
 			'Set-CDExclusionPath', 'Set-CDExclusionExtension',
 			'Set-CDExclusionIpAddress', 'Set-CDSetting', 'Set-CDThreatAction',

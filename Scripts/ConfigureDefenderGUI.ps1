@@ -17,6 +17,7 @@
 	  4. Settings          - view and edit Defender settings incl. Network Protection & CFA State
 	  5. Threat Actions    - set default action per threat severity level
 	  6. Events            - view recent ASR and CFA events from the event log
+	  7. History           - view threat detection history with filter and date range controls
 
 	Source files (dot-sourced from this entry point)
 	-------------------------------------------------
@@ -27,6 +28,7 @@
 	  GUI-Tab-CFA.ps1          - Tab 3: Controlled Folders + Allowed Apps split panel
 	  GUI-Tab-Settings.ps1     - Tab 4: Settings
 	  GUI-Tab-ThreatEvents.ps1 - Tabs 5-6: Threat Actions + Events
+	  GUI-Tab-History.ps1      - Tab 7: Threat Detection History
 
 	.NOTES
 	Elevation pattern
@@ -291,6 +293,7 @@ function Add-EmptyPlaceholder ([System.Windows.Forms.ListView]$Lv, [string]$Text
 . "$PSScriptRoot\GUI-Tab-Exclusions.ps1"
 . "$PSScriptRoot\GUI-Tab-CFA.ps1"
 . "$PSScriptRoot\GUI-Tab-ThreatEvents.ps1"
+. "$PSScriptRoot\GUI-Tab-History.ps1"
 
 #region Initial Load
 $TabControl.Add_SelectedIndexChanged({
@@ -318,6 +321,7 @@ $TabControl.Add_SelectedIndexChanged({
 			3 { $TsBtnCFRefresh.PerformClick() }
 			4 { $TsBtnThreatRefresh.PerformClick() }
 			5 { $TsBtnEvRefresh.PerformClick() }
+			6 { $TsBtnHistRefresh.PerformClick() }
 		}
 	}
 	finally

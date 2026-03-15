@@ -69,6 +69,7 @@ $script:FunctionExportTable = @{
 	'Get-CDAllowedApplications'    = $true
 	'Get-CDSettings'               = $true
 	'Get-CDThreatActions'          = $true
+	'Get-CDThreatDetections'       = $true
 	# Write functions - must run elevated via NamedPipe
 	'Set-CDASRRule'                = $true
 	'Set-CDASRExclusion'           = $true

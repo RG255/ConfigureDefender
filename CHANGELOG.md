@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - ASR rule table: added C0033C00 - Block use of copied or impersonated system tools (Preview rule, not yet in stable Windows 10 release)
+- Get-CDThreatDetections - returns threat detection history with human-readable fields (joins Get-MpThreatDetection + Get-MpThreat); supports Filter (All/Active/Remediated/Failed) and Since (DateTime) parameters
+- GUI Tab 7: History - view detection history with filter, date range, and collapsible Resources panel; color-coded by status (active/failed/remediated/allowed)
 
 ## [0.1] - 2026-03-15
 
