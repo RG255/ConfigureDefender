@@ -40,8 +40,6 @@ $TsHist.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Nu
 $TsBtnHistRes       = New-Object System.Windows.Forms.ToolStripButton
 $TsBtnHistRes.Text  = 'Resources [+]'
 $TsHist.Items.Add($TsBtnHistRes) | Out-Null
-
-$TabHist.Controls.Add($TsHist)
 #endregion
 
 #region SplitContainer
@@ -50,7 +48,10 @@ $ScHist.Dock               = 'Fill'
 $ScHist.Orientation        = 'Horizontal'
 $ScHist.SplitterDistance   = 320
 $ScHist.Panel2Collapsed    = $true
+# SplitContainer must be added first so the ToolStrip (added second/back) is
+# processed first by the docking layout engine and correctly claims the top edge.
 $TabHist.Controls.Add($ScHist)
+$TabHist.Controls.Add($TsHist)
 #endregion
 
 #region Main ListView
