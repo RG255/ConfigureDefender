@@ -182,7 +182,7 @@ $TsBtnHistRefresh.Add_Click({
 			$Li.SubItems.Add([string]$D.Status)     | Out-Null
 			$Li.SubItems.Add([string]$D.Action)     | Out-Null
 			$Li.SubItems.Add([string]$D.Source)     | Out-Null
-			$Li.SubItems.Add([string]$D.User)       | Out-Null
+			$Li.SubItems.Add($(if ($D.User) { [string]$D.User } else { 'Unknown' })) | Out-Null
 			$Li.SubItems.Add($ProcStr)              | Out-Null
 			$Li.ForeColor = Get-HistItemColor -Status $D.Status -ActionSuccess $D.ActionSuccess -IsActive $D.IsActive
 			$Li.Tag       = $D
