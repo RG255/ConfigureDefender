@@ -17,8 +17,8 @@
 	PowerShellVersion = '5.0'
 	RequiredModules   = @(
 		@{
-			ModuleName    = 'NamedPipe'
-			ModuleVersion = '0.6'
+			ModuleName      = 'NamedPipe'
+			RequiredVersion = '0.8'
 		}
 	)
 	ModuleList        = @()
