@@ -7,9 +7,16 @@ Function Get-CDEvents
 
 		.DESCRIPTION
 		Retrieves events from Microsoft-Windows-Windows Defender/Operational for
-		Attack Surface Reduction (Event ID 1121) and/or Controlled Folder Access
-		(Event ID 1123) violations.  Events are parsed from the message text into
-		structured objects.
+		Attack Surface Reduction and/or Controlled Folder Access.  Both block-mode
+		and audit-mode events are collected, and for Controlled Folder Access the
+		file-modification events AND the sector/memory-write events are collected:
+
+			ASR : 1121 (block), 1122 (audit)
+			CFA : 1123 (block file), 1124 (audit file),
+			      1127 (block sector/memory), 1128 (audit sector/memory)
+
+		Events are parsed from the message text into structured objects.  The Mode
+		(block / audit and file / sector) is surfaced through RuleInfo.
 
 		.PARAMETER Filter
 		Which event types to return: All (default), ASR, or CFA.
@@ -34,12 +41,14 @@ Function Get-CDEvents
 		[string]$Like
 	)
 
-	# Determine event IDs to collect
+	# Determine event IDs to collect. ASR: 1121 block, 1122 audit. CFA: 1123 block-file,
+	# 1124 audit-file, 1127 block-sector/memory, 1128 audit-sector/memory. Block-only IDs
+	# (1121/1123) miss audit-mode activity and CFA sector-write blocks (1127) entirely.
 	$EventIDs = switch ($Filter)
 	{
-		'ASR' { @(1121) }
-		'CFA' { @(1123) }
-		default { @(1121, 1123) }
+		'ASR' { @(1121, 1122) }
+		'CFA' { @(1123, 1124, 1127, 1128) }
+		default { @(1121, 1122, 1123, 1124, 1127, 1128) }
 	}
 
 	# Default Since to last boot time
@@ -55,10 +64,11 @@ Function Get-CDEvents
 	ForEach-Object {
 		$EvRec   = $_
 		$Message = [string]::New($Enc.GetBytes($EvRec.Message)) -split "`n"
+		$IsASR   = $EvRec.Id -in 1121, 1122
 
 		$Obj = [PSCustomObject][Ordered]@{
 			EventID     = [string]$EvRec.Id
-			EventType   = if ($EvRec.Id -eq 1121) { 'Attack Surface Reduction' } else { 'Controlled Folder Access' }
+			EventType   = if ($IsASR) { 'Attack Surface Reduction' } else { 'Controlled Folder Access' }
 			TimeCreated = $EvRec.TimeCreated
 			ID          = $null      # ASR only: rule GUID from message
 			RuleInfo    = $null      # ASR only: rule description
@@ -80,10 +90,27 @@ Function Get-CDEvents
 			}
 		}
 
-		# Resolve rule GUID to description (ASR only)
-		if ($EvRec.Id -eq 1121 -and $Obj.ID)
+		# ASR: resolve rule GUID to description (block and audit both carry a rule GUID);
+		# mark audit-mode so the user does not mistake it for an actual block.
+		if ($IsASR)
 		{
-			$Obj.RuleInfo = if ($script:ASRRules.Contains($Obj.ID)) { $script:ASRRules[$Obj.ID] } else { 'Unknown rule' }
+			if ($Obj.ID)
+			{ $Obj.RuleInfo = if ($script:ASRRules.Contains($Obj.ID)) { $script:ASRRules[$Obj.ID] } else { 'Unknown rule' } }
+			if ($EvRec.Id -eq 1122)
+			{ $Obj.RuleInfo = ('{0} (Audit)' -f $(if ($Obj.RuleInfo) { $Obj.RuleInfo } else { 'ASR' })) }
+		}
+		else
+		{
+			# CFA has no rule GUID - surface the mode (block/audit, file/sector) in RuleInfo so
+			# the otherwise-empty Rule column tells the user what kind of CFA event this is.
+			$Obj.RuleInfo = switch ($EvRec.Id)
+			{
+				1123 { 'Block (file)' }
+				1124 { 'Audit (file)' }
+				1127 { 'Block (sector/memory)' }
+				1128 { 'Audit (sector/memory)' }
+				default { 'Controlled Folder Access' }
+			}
 		}
 
 		# Apply Like filter if specified

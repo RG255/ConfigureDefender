@@ -71,7 +71,7 @@ $TsBtnSettingsRefresh.Add_Click({
 		$script:SettingsCache = @(Get-CDSettings)
 		Update-SettingsView
 	}
-	catch { $StatusLabel.Text = 'Error loading Settings: ' + $_.Exception.Message }
+	catch { Write-OperationError -Operation 'Get-CDSettings' -ErrorInfo $_ }
 	finally
 	{
 		$Form.UseWaitCursor = $false

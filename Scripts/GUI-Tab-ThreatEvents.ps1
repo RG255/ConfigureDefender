@@ -121,7 +121,7 @@ $ToolStripEvents.Items.Add((New-Object System.Windows.Forms.ToolStripLabel('Sinc
 $TsCmbEvSince               = New-Object System.Windows.Forms.ToolStripComboBox
 $TsCmbEvSince.DropDownStyle = 'DropDownList'
 $TsCmbEvSince.Width         = 100
-$TsCmbEvSince.Items.AddRange(@('Since Boot', 'Today', 'Yesterday', 'Custom Date'))
+$TsCmbEvSince.Items.AddRange(@('Since Boot', 'Today', 'Yesterday', 'Last 7 Days', 'Last 30 Days', 'Custom Date'))
 $TsCmbEvSince.SelectedIndex = 0
 $ToolStripEvents.Items.Add($TsCmbEvSince) | Out-Null
 
@@ -173,10 +173,12 @@ $TsBtnEvRefresh.Add_Click({
 		$SinceKey  = if ($TsCmbEvSince.SelectedItem)   { $TsCmbEvSince.SelectedItem.ToString()   } else { 'Since Boot' }
 		$Since     = switch ($SinceKey)
 		{
-			'Today'       { [datetime]::Today }
-			'Yesterday'   { [datetime]::Today.AddDays(-1) }
-			'Custom Date' { $EvDatePicker.Value.Date }
-			default       { $null }  # Since Boot - Get-CDEvents default
+			'Today'        { [datetime]::Today }
+			'Yesterday'    { [datetime]::Today.AddDays(-1) }
+			'Last 7 Days'  { [datetime]::Today.AddDays(-7) }
+			'Last 30 Days' { [datetime]::Today.AddDays(-30) }
+			'Custom Date'  { $EvDatePicker.Value.Date }
+			default        { $null }  # Since Boot - Get-CDEvents default
 		}
 		# Clear immediately so old data does not persist while fetching
 		$LvEvents.Items.Clear()
@@ -193,7 +195,7 @@ $TsBtnEvRefresh.Add_Click({
 			$Li.SubItems.Add($(if ($Ev.ProcessName) { $Ev.ProcessName } else { '' })) | Out-Null
 			$Li.SubItems.Add($(if ($Ev.Path)        { $Ev.Path }        else { '' })) | Out-Null
 			$Li.SubItems.Add($(if ($Ev.RuleInfo)    { $Ev.RuleInfo }    else { '' })) | Out-Null
-			if ($Ev.EventID -eq '1123') { $Li.ForeColor = [System.Drawing.Color]::DarkBlue }
+			if ($Ev.EventType -eq 'Controlled Folder Access') { $Li.ForeColor = [System.Drawing.Color]::DarkBlue }
 			$LvEvents.Items.Add($Li) | Out-Null
 		}
 		Add-EmptyPlaceholder $LvEvents

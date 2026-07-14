@@ -2,6 +2,48 @@
 # Dot-sourced before all GUI-Tab-*.ps1 files so every tab can call these.
 
 # ---------------------------------------------------------------------------
+# Path validation helper
+# ---------------------------------------------------------------------------
+
+function Test-ExclusionPath ([string]$Path)
+{
+	if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+
+	$Path = $Path.Trim()
+	if ($Path -like '\\*' -and -not $Path.StartsWith('\\.\')) {
+		$StatusLabel.Text = "Rejection: UNC paths not allowed for exclusions"
+		return $false
+	}
+
+	if ($Path -match '[<>"|?]' -and -not $Path.Contains('*')) {
+		$StatusLabel.Text = "Rejection: Invalid characters in path"
+		return $false
+	}
+
+	if ($Path.Length -gt 260) {
+		$StatusLabel.Text = "Rejection: Path too long (max 260 characters)"
+		return $false
+	}
+
+	return $true
+}
+
+# ---------------------------------------------------------------------------
+# Error logging helper (sanitizes console, logs details)
+# ---------------------------------------------------------------------------
+
+function Write-OperationError ([string]$Operation, [object]$ErrorInfo)
+{
+	$timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+	$logPath = Join-Path $env:TEMP "ConfigureDefender-$(Get-Date -Format 'yyyyMMdd').log"
+
+	$logMessage = "$timestamp | $Operation | $($ErrorInfo.Exception.Message) | $($ErrorInfo.InvocationInfo.ScriptName):$($ErrorInfo.InvocationInfo.ScriptLineNumber)"
+	Add-Content -LiteralPath $logPath -Value $logMessage -ErrorAction SilentlyContinue
+
+	$StatusLabel.Text = "Operation failed. Check logs for details."
+}
+
+# ---------------------------------------------------------------------------
 # Dialog functions
 # ---------------------------------------------------------------------------
 
@@ -35,7 +77,12 @@ function Show-ExclPathDialog ([string]$Title, [string]$Initial = '')
 		$OFD        = New-Object System.Windows.Forms.OpenFileDialog
 		$OFD.Title  = 'Select a file to exclude'
 		$OFD.Filter = 'All files (*.*)|*.*'
-		if ($OFD.ShowDialog() -eq 'OK') { $Txt.Text = $OFD.FileName }
+		if ($OFD.ShowDialog() -eq 'OK') {
+			$FileName = $OFD.FileName
+			if (Validate-ExclusionPath -Path $FileName) {
+				$Txt.Text = $FileName
+			}
+		}
 	})
 	$Dlg.Controls.Add($BtnFile)
 
@@ -46,7 +93,12 @@ function Show-ExclPathDialog ([string]$Title, [string]$Initial = '')
 	$BtnFolder.Add_Click({
 		$FBD             = New-Object System.Windows.Forms.FolderBrowserDialog
 		$FBD.Description = 'Select a folder to exclude'
-		if ($FBD.ShowDialog() -eq 'OK') { $Txt.Text = $FBD.SelectedPath }
+		if ($FBD.ShowDialog() -eq 'OK') {
+			$FolderPath = $FBD.SelectedPath
+			if (Validate-ExclusionPath -Path $FolderPath) {
+				$Txt.Text = $FolderPath
+			}
+		}
 	})
 	$Dlg.Controls.Add($BtnFolder)
 

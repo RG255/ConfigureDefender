@@ -22,6 +22,13 @@ Function Set-CDExclusionPath
 	param
 	(
 		[Parameter(Mandatory)]
+		[ValidateScript({
+			if ([string]::IsNullOrWhiteSpace($_)) { throw 'Path cannot be empty' }
+			if ($_ -like '\\*' -and -not $_.StartsWith('\\.\')) { throw 'UNC paths not allowed for exclusions' }
+			if ($_ -match '[<>"|]' -and -not $_.Contains('*')) { throw 'Invalid characters in path' }
+			if ($_.Length -gt 260) { throw 'Path exceeds Windows maximum length (260 characters)' }
+			$true
+		})]
 		[string]$Path,
 
 		[Parameter(ParameterSetName = 'Add')]

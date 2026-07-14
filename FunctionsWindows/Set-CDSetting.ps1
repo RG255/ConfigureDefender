@@ -29,4 +29,14 @@ Function Set-CDSetting
 
 	$Params = @{ $Name = $Value }
 	Set-MpPreference @Params
+
+	try
+	{
+		Write-EventLog -LogName Application -Source ConfigureDefender `
+			-EventId 4001 -EntryType Information `
+			-Message "Defender setting updated: $Name = $Value" -ErrorAction SilentlyContinue
+	}
+	catch
+	{
+	}
 }

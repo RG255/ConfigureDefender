@@ -8,19 +8,41 @@
 
 @{
 	RootModule        = 'InitialiseModule.psm1'
-	ModuleVersion     = '0.2'
+	ModuleVersion     = '0.3'
 	GUID              = 'b4ddb8e6-c93f-4879-9209-31f600ad2a36'
 	Author            = 'RayG'
 	CompanyName       = 'RayG'
 	Copyright         = '(c) 2026 RayG. All rights reserved.'
-	Description       = 'Manages Microsoft Defender configuration: ASR rules, exclusions, Controlled Folder Access, Network Protection, and event inspection. Provides a GUI front-end via NamedPipe elevation.'
+	Description       = 'Manages Microsoft Defender configuration: ASR rules, exclusions, Controlled Folder Access, Network Protection, and event inspection. Provides a GUI front-end via NamedPipe elevation. v0.3: Security hardening - path validation in dialogs.'
 	PowerShellVersion = '5.0'
 	RequiredModules   = @(
 		@{
 			ModuleName      = 'NamedPipe'
-			RequiredVersion = '0.8'
+			RequiredVersion = '0.9'
 		}
 	)
+	# Explicit exports so PowerShell can AUTO-LOAD the module on first use of any of
+	# these commands (e.g. Start-ConfigureDefenderGUI) without a manual Import-Module.
+	# This list MUST mirror the runtime Export-ModuleMember set driven by the
+	# FunctionExportTable in Functions\DefineVariables.ps1 - the effective exports are
+	# the INTERSECTION of the two, so a name dropped here becomes unavailable.
+	FunctionsToExport = @(
+		'Get-CDASRRules', 'Get-CDEvents', 'Get-CDControlledFolders', 'Get-CDNetworkProtection',
+		'Get-CDControlledFolderAccess', 'Get-CDASRExclusions', 'Get-CDExclusionProcesses',
+		'Get-CDExclusionPaths', 'Get-CDExclusionExtensions', 'Get-CDExclusionIpAddresses',
+		'Get-CDAllowedApplications', 'Get-CDSettings', 'Get-CDThreatActions', 'Get-CDThreatDetections',
+		'Set-CDASRRule', 'Set-CDASRExclusion', 'Set-CDExclusionProcess', 'Set-CDExclusionPath',
+		'Set-CDExclusionExtension', 'Set-CDExclusionIpAddress', 'Set-CDSetting', 'Set-CDThreatAction',
+		'Set-CDControlledFolder', 'Set-CDAllowedApplication', 'Set-CDControlledFolderAccess',
+		'Set-CDNetworkProtection', 'Open-CDPipeSession', 'Close-CDPipeSession',
+		'Get-CDSendRequestParams', 'Start-ConfigureDefenderGUI'
+	)
+	CmdletsToExport   = @()
+	# '*' not @(): the psm1 exports its variable vocabulary via Export-ModuleMember
+	# -Variable; a manifest @() filters that to nothing. Autoload runs off
+	# FunctionsToExport above independently. (Regression fixed 2026-07-05.)
+	VariablesToExport = '*'
+	AliasesToExport   = @()
 	ModuleList        = @()
 	FileList          = @()
 	PrivateData       = @{
