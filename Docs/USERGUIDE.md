@@ -227,9 +227,9 @@ Get-CDEvents -Like 'powershell'            # filter by process name
 
 `SAC-Allow` reads Smart App Control **allow** decisions (event 3075, enriched by 3088) from
 `Microsoft-Windows-CodeIntegrity/Verbose`. That channel is disabled by default, so this returns
-nothing unless it was enabled during the load - use the Events tab **Log Allows** toggle (or
-`Set-CDCIVerbose`) to capture, then read with this filter. Rows come back as EventType
-`Smart App Control (allowed)`.
+nothing unless it was enabled during the load - use the Events tab **Log** toggle (under "SAC Allows:")
+or `Set-CDCIVerbose` to capture, then read with this filter. Rows come back as EventType
+`Smart App Control (allowed)` (blocks are `Smart App Control (blocked)`).
 
 **Event sources / IDs:**
 
@@ -417,6 +417,27 @@ Set-CDNetworkProtection -Disable  # value 0
 
 ---
 
+### Set-CDCIVerbose [admin]
+
+Enables or disables the `Microsoft-Windows-CodeIntegrity/Verbose` channel - where Smart App Control
+records **allow** decisions (event 3075). Runs on the elevated pipe server; reading the captured allows
+afterwards (`Get-CDEvents -Filter SAC-Allow`) needs no elevation.
+
+```powershell
+Set-CDCIVerbose                       # enable (widen to 128 MB, register the watchdog)
+Set-CDCIVerbose -WatchdogMinutes 15   # enable + auto-disable after 15 minutes
+Set-CDCIVerbose -Disable              # disable + restore defaults + remove watchdog
+```
+
+Uses the in-process `EventLogConfiguration` API (not `wevtutil`, which deadlocks in the console-less
+server). On enable it widens the channel to 128 MB (a Debug channel that stays in Retain mode) and
+registers a self-deleting **SYSTEM watchdog scheduled task** (`ConfigureDefender-SACVerboseWatchdog`) that
+disables the channel again - always at the next reboot, plus after `-WatchdogMinutes` if given - so it is
+never left on even if the GUI is killed. Returns `Channel`, `Enabled`, `MaxSizeMB`, `Watchdog`. The
+Events tab **Log** toggle calls this; you rarely need it directly.
+
+---
+
 ## Data Structures
 
 ### ASRRules (16 entries)
@@ -479,8 +500,31 @@ The GUI entry point is `Scripts\ConfigureDefenderGUI.ps1`, which dot-sources 5 t
 | 3. Controlled Folders | Refresh, Add, Remove, Allowed Apps [+/-] toggle | Toggle reveals Allowed Apps in a SplitContainer bottom panel |
 | 4. Settings | Refresh | Double-click to edit Bool/Enum/Int settings |
 | 5. Threat Actions | Refresh | Double-click to edit action per severity |
-| 6. Events | Refresh, Add Exclusion, Details, Filter (type/since/date) | Read-only ASR/CFA/SAC event view. Type filter includes `SAC` (blocks, red) and `SAC-Allow` (allows, green). For a SAC row, click **Details** (or double-click) to open the block-details dialog: a selectable read-only text box showing reason, SHA256, requested/validated signing level, signer, reputation and SAC policy, with **Copy All** and **Copy SHA256**. To view *allow* decisions, first capture them with `Scripts\Trace-SmartAppControl.ps1` (elevated) or `Set-CDCIVerbose`, then pick the `SAC-Allow` filter and Refresh |
+| 6. Events | Refresh, Add Exclusion, Details, Filter (type/since/date); **SAC Allows:** Log / Save / Open + Auto-off min; Find | Read-only ASR/CFA/SAC event view. Type filter includes `SAC` (blocks, red) and `SAC-Allow` (allows, green). **Details** (or double-click) opens the SAC details dialog (selectable text, Copy All / Copy SHA256). The **SAC Allows** group captures and analyses allow decisions - see "Smart App Control allow logging" below. **Find** filters the shown rows across all columns |
 | 7. History | Refresh, Filter (status/since/date) | Threat detection history |
+
+### Smart App Control allow logging (Events tab)
+
+SAC records **blocks** to the Operational log (always), but **allow** decisions only to the high-volume
+`CodeIntegrity/Verbose` channel, which is off by default. The **SAC Allows** toolbar group captures and
+works with those allows:
+
+- **Log** - a checkbox that enables the Verbose channel (one UAC via the pipe) and disables it after the
+  **Auto-off min** value. `0` = manual: stays on until you click Log again, and it survives closing the
+  GUI (so you can leave a capture running all day). A watchdog always turns it off at the next reboot.
+- **Auto-off min** - minutes before auto-off (default 15; `0` = manual).
+- **Save** - writes the capture to a CSV: the allows captured since logging started **plus** all SAC
+  **blocks since boot** (so a boot-time block and its later allow appear together), merged in time order.
+  When viewing an opened file (below), Save instead writes just the **filtered** rows.
+- **Open** - loads a saved CSV back into the grid (blocks red, allows green; double-click for Details).
+- **Find** - filters the shown rows to those matching the text in **any** column (process, path/DLL, rule,
+  or any detail field), so related entries correlate across columns. Refresh reverts to live events.
+
+Typical flow: set **Auto-off**, tick **Log**, launch the app, pick the **SAC-Allow** filter and Refresh to
+see allows; **Save** the capture. Later, **Open** it, type a program in **Find** to isolate its entries
+(e.g. a DLL blocked at boot then allowed after a restart), and **Save** that subset as evidence. If SAC
+logging is still on when you next start the GUI, it warns and offers to turn it off. Enabling **clears**
+any previous capture, so you are prompted to save it first.
 
 ### Exclusions tab - category switching
 
