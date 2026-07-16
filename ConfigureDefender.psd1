@@ -34,7 +34,7 @@
 		'Set-CDASRRule', 'Set-CDASRExclusion', 'Set-CDExclusionProcess', 'Set-CDExclusionPath',
 		'Set-CDExclusionExtension', 'Set-CDExclusionIpAddress', 'Set-CDSetting', 'Set-CDThreatAction',
 		'Set-CDControlledFolder', 'Set-CDAllowedApplication', 'Set-CDControlledFolderAccess',
-		'Set-CDNetworkProtection', 'Open-CDPipeSession', 'Close-CDPipeSession',
+		'Set-CDNetworkProtection', 'Set-CDCIVerbose', 'Open-CDPipeSession', 'Close-CDPipeSession',
 		'Get-CDSendRequestParams', 'Start-ConfigureDefenderGUI'
 	)
 	CmdletsToExport   = @()

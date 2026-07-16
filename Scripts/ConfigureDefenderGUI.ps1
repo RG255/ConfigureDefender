@@ -1,4 +1,4 @@
-﻿#requires -Version 5.0
+#requires -Version 5.0
 <#
 	.SYNOPSIS
 	Windows Forms GUI for the ConfigureDefender module.
@@ -50,7 +50,7 @@
 
 #region Module Load
 Remove-Module ConfigureDefender -Force -ErrorAction SilentlyContinue
-Import-Module ConfigureDefender -RequiredVersion 0.2 -Force -ErrorAction Stop
+Import-Module ConfigureDefender -RequiredVersion 0.3 -Force -ErrorAction Stop
 #endregion
 
 #region Assemblies
@@ -133,7 +133,7 @@ function Show-CDHelp
 	}
 
 	$script:HelpForm                 = New-Object System.Windows.Forms.Form
-	$script:HelpForm.Text            = 'Configure Defender â€“ Help'
+	$script:HelpForm.Text            = 'Configure Defender - Help'
 	$script:HelpForm.Size            = New-Object System.Drawing.Size(520, 620)
 	$script:HelpForm.MinimumSize     = New-Object System.Drawing.Size(400, 400)
 	$script:HelpForm.FormBorderStyle = 'Sizable'
@@ -212,13 +212,28 @@ Sets the default remediation action per threat severity level
 
 EVENTS TAB
 ----------
-Displays recent ASR and CFA events from the Windows Defender event log.
+Displays recent ASR, CFA and Smart App Control (SAC) events. ASR/CFA come
+from the Windows Defender log; SAC comes from the Code Integrity log.
 
-  - Use the Filter combo to show All, ASR-only, or CFA-only events.
+  - Use the Filter combo to show All, ASR, CFA or SAC events.
   - Use the Since combo to limit results by date; choose Custom Date to
-    pick a specific day.
-  - Select exactly one event row, then click Add as Exclusion to add
-    that file path as an exclusion.
+    pick a specific day. Note: SAC blocks only occur when a blocked app
+    is launched, so the default "Since Boot" is often empty - widen it to
+    Last 7 Days to see recent SAC blocks.
+  - Select one ASR/CFA row, then click Add as Exclusion to add that file
+    path as an exclusion. (SAC blocks cannot be fixed with an exclusion;
+    they need the Smart App Control on/off toggle or a WDAC allow rule.)
+  - Select a SAC row and click Details (or double-click it) to see the
+    full block record - reason, SHA256, requested/validated signing level,
+    signer, reputation and SAC policy. The dialog text is selectable and
+    has Copy All / Copy SHA256 buttons.
+  - "Why did an app PASS?" SAC only logs blocks by default; allow
+    decisions live in the disabled CodeIntegrity/Verbose channel. To
+    capture them, run Scripts\Trace-SmartAppControl.ps1 from an elevated
+    PowerShell (it enables Verbose, captures, and disables it again).
+    Then choose the SAC-Allow filter here and Refresh to see the allow
+    decisions (green) with the validated signing level / reputation that
+    earned trust - compare these against the red block rows.
 "@
 	$script:HelpForm.Controls.Add($HelpRtb)
 	$script:HelpForm.Show($Form)
@@ -227,8 +242,8 @@ Displays recent ASR and CFA events from the Windows Defender event log.
 
 #region Main Form
 $Form                 = New-Object System.Windows.Forms.Form
-$Form.Text            = 'Configure Defender  v0.2'
-$Form.Size            = New-Object System.Drawing.Size(900, 650)
+$Form.Text            = 'Configure Defender  v0.3'
+$Form.Size            = New-Object System.Drawing.Size(1080, 650)
 $Form.StartPosition   = 'CenterScreen'
 $Form.FormBorderStyle = 'Sizable'
 $Form.MaximizeBox     = $true
@@ -287,7 +302,7 @@ function Add-EmptyPlaceholder ([System.Windows.Forms.ListView]$Lv, [string]$Text
 # Shared helpers (dialogs + validators) - must be first
 . "$PSScriptRoot\GUI-Helpers.ps1"
 
-# Tab sections â€” Settings is first (leftmost, default tab)
+# Tab sections - Settings is first (leftmost, default tab)
 . "$PSScriptRoot\GUI-Tab-Settings.ps1"
 . "$PSScriptRoot\GUI-Tab-ASR.ps1"
 . "$PSScriptRoot\GUI-Tab-Exclusions.ps1"
@@ -307,7 +322,7 @@ $TabControl.Add_SelectedIndexChanged({
 			0 { $TsBtnSettingsRefresh.PerformClick() }
 			1 { $TsBtnRefresh.PerformClick() }
 			2 {
-				# Exclusions: update view from cache only â€” do not open the pipe until
+				# Exclusions: update view from cache only - do not open the pipe until
 				# the user explicitly clicks a category button or Refresh
 				switch ($script:ExclCategory)
 				{

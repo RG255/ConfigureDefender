@@ -79,7 +79,7 @@ function Show-ExclPathDialog ([string]$Title, [string]$Initial = '')
 		$OFD.Filter = 'All files (*.*)|*.*'
 		if ($OFD.ShowDialog() -eq 'OK') {
 			$FileName = $OFD.FileName
-			if (Validate-ExclusionPath -Path $FileName) {
+			if (Test-ExclusionPath -Path $FileName) {
 				$Txt.Text = $FileName
 			}
 		}
@@ -95,7 +95,7 @@ function Show-ExclPathDialog ([string]$Title, [string]$Initial = '')
 		$FBD.Description = 'Select a folder to exclude'
 		if ($FBD.ShowDialog() -eq 'OK') {
 			$FolderPath = $FBD.SelectedPath
-			if (Validate-ExclusionPath -Path $FolderPath) {
+			if (Test-ExclusionPath -Path $FolderPath) {
 				$Txt.Text = $FolderPath
 			}
 		}

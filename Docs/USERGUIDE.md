@@ -1,4 +1,4 @@
-# ConfigureDefender Module v0.1 - User Guide
+# ConfigureDefender Module v0.3 - User Guide
 
 <!-- CONTRIBUTOR NOTE: Do NOT use em-dashes in this file. Use a regular hyphen (-) only.
      Em-dashes cause PowerShell parser errors in string literals and may be silently
@@ -205,12 +205,14 @@ Get-CDControlledFolders -Like 'Documents'   # wildcard filter
 
 ### Get-CDEvents
 
-Returns Defender events from the Windows event log. No elevation required.
+Returns Defender **and Smart App Control (SAC)** events from the Windows event log. No elevation
+required (both logs grant read to interactive users).
 
 ```powershell
 Get-CDEvents                                # all events since last boot
-Get-CDEvents -Filter ASR                    # ASR events only (ID 1121)
-Get-CDEvents -Filter CFA                    # CFA events only (ID 1123)
+Get-CDEvents -Filter ASR                    # ASR events only (1121 block / 1122 audit)
+Get-CDEvents -Filter CFA                    # CFA events only (1123/1124/1127/1128)
+Get-CDEvents -Filter SAC                    # Smart App Control events only
 Get-CDEvents -Since (Get-Date).AddDays(-7) # last 7 days
 Get-CDEvents -Like 'powershell'            # filter by process name
 ```
@@ -219,12 +221,66 @@ Get-CDEvents -Like 'powershell'            # filter by process name
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `Filter` | String | All | `All`, `ASR`, or `CFA` |
+| `Filter` | String | All | `All`, `ASR`, `CFA`, `SAC` (blocks), or `SAC-Allow` (allows, from the Verbose channel) |
 | `Since` | DateTime | Last boot | Only return events after this time |
 | `Like` | String | - | Wildcard filter on ProcessName |
 
-**Output:** `PSCustomObject[]` with EventID, EventType, TimeCreated, ID, RuleInfo, Path,
-ProcessName, User.
+`SAC-Allow` reads Smart App Control **allow** decisions (event 3075, enriched by 3088) from
+`Microsoft-Windows-CodeIntegrity/Verbose`. That channel is disabled by default, so this returns
+nothing unless it was enabled during the load - use the Events tab **Log Allows** toggle (or
+`Set-CDCIVerbose`) to capture, then read with this filter. Rows come back as EventType
+`Smart App Control (allowed)`.
+
+**Event sources / IDs:**
+
+- ASR / CFA come from `Microsoft-Windows-Windows Defender/Operational` (ASR 1121/1122;
+  CFA 1123/1124/1127/1128).
+- SAC comes from a **different** log, `Microsoft-Windows-CodeIntegrity/Operational`: 3077 (blocked),
+  3076 (audit), 3033/3034 (signing-level), with 3089 (signature details) and 3118 (Defender/ISG
+  reputation) folded into the row by Correlation ActivityId. Policy-refresh events (3099) are
+  intentionally excluded as noise. `\Device\HarddiskVolumeN` paths are converted to drive letters.
+
+**Output:** `PSCustomObject[]` with `EventID`, `EventType`, `TimeCreated`, `ID`, `RuleInfo`, `Path`,
+`ProcessName`, `User`. SAC rows additionally carry:
+
+| Property | Description |
+|----------|-------------|
+| `Sha256` | Authenticode SHA256 of the blocked file (for allow-listing / VirusTotal) |
+| `Details` | Ordered hashtable of forensic fields: Process, File, SHA256, Requested/Validated signing level, Signer/Issuer, chains-to-trusted-root, cert validity, Verification error, Reputation, **Defender cloud check** (requested / performed with HTTP code / satisfied from cache), Threat name (when named), Defender status, Signing scenario, File user-writeable, SAC policy + GUID, CI status |
+
+`RuleInfo` for SAC gives the short reason, e.g. `Blocked - unsigned` or
+`Blocked - signed by <Publisher>, untrusted`.
+
+> **Note on "Since Boot":** SAC blocks fire when a blocked app is launched, not on every boot, so the
+> default since-boot window often shows nothing. Widen `-Since` (e.g. last 7 days) to see recent blocks.
+
+---
+
+### Trace-SmartAppControl.ps1 (diagnostic) [admin]
+
+`Scripts\Trace-SmartAppControl.ps1` answers "why was this app *allowed* to load, vs why did that one
+fail?". Smart App Control only logs **blocks** to `Microsoft-Windows-CodeIntegrity/Operational`;
+successful **allow** decisions are recorded only in `Microsoft-Windows-CodeIntegrity/Verbose`, which is
+**disabled by default** and very high-volume. This helper enables that channel for a short window,
+captures the decisions, then **always disables it again** (finally block). Run from an **elevated**
+PowerShell.
+
+```powershell
+# Capture allow decisions while launching a known-good signed app
+.\Trace-SmartAppControl.ps1 -Path 'C:\Windows\System32\notepad.exe' -Seconds 8
+
+# Manual repro of a blocked app - launch it yourself during the capture, then diff the two
+.\Trace-SmartAppControl.ps1 -Match 'Sunny Explorer' -Interactive
+```
+
+**Output:** objects with `TimeCreated, Id, Decision, Process, File, RequestedLevel, ValidatedLevel,
+Publisher, Sha256, Message`. A genuine allow shows up as event **3075** with the validated signing
+level / reputation that earned trust; a block is **3077/3033**. Note **3115** (in the Operational log,
+always on) is a *third* case: a file that **failed** dynamic-code trust but was allowed **only because
+an audit policy is active** - it reports file/process/hashes but no positive trust reason (it did not
+pass on merit).
+
+> The Verbose channel logs every image load system-wide, so keep `-Seconds` small and use `-Match`.
 
 ---
 
@@ -423,7 +479,8 @@ The GUI entry point is `Scripts\ConfigureDefenderGUI.ps1`, which dot-sources 5 t
 | 3. Controlled Folders | Refresh, Add, Remove, Allowed Apps [+/-] toggle | Toggle reveals Allowed Apps in a SplitContainer bottom panel |
 | 4. Settings | Refresh | Double-click to edit Bool/Enum/Int settings |
 | 5. Threat Actions | Refresh | Double-click to edit action per severity |
-| 6. Events | Refresh, Add Exclusion, Filter (type/since/date) | Read-only event log view |
+| 6. Events | Refresh, Add Exclusion, Details, Filter (type/since/date) | Read-only ASR/CFA/SAC event view. Type filter includes `SAC` (blocks, red) and `SAC-Allow` (allows, green). For a SAC row, click **Details** (or double-click) to open the block-details dialog: a selectable read-only text box showing reason, SHA256, requested/validated signing level, signer, reputation and SAC policy, with **Copy All** and **Copy SHA256**. To view *allow* decisions, first capture them with `Scripts\Trace-SmartAppControl.ps1` (elevated) or `Set-CDCIVerbose`, then pick the `SAC-Allow` filter and Refresh |
+| 7. History | Refresh, Filter (status/since/date) | Threat detection history |
 
 ### Exclusions tab - category switching
 
@@ -792,6 +849,9 @@ a dropped session transparently.
 Ensure ConfigureDefender is deployed to a path in `$env:PSModulePath` (e.g.
 `L:\OneDrive\Documents\WindowsPowerShell\Modules\ConfigureDefender\0.1\`).
 
-### Get-CDEvents returns nothing
+### Get-CDEvents returns nothing (or the Events tab / SAC filter is empty)
 The event log query defaults to events since the last boot. Use `-Since` with an earlier
-date or ensure Defender events are enabled in the local Group Policy.
+date or ensure Defender events are enabled in the local Group Policy. This bites the **SAC**
+filter especially: SAC blocks only fire when a blocked app is launched, not on every boot, so
+"Since Boot" is frequently empty even when there are many recent blocks. Select **Last 7 Days**
+or **Last 30 Days** in the Since dropdown.

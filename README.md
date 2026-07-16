@@ -9,7 +9,9 @@ A PowerShell module for managing Microsoft Defender configuration on Windows 10/
 - Manage Controlled Folder Access protected folders and allowed applications
 - Configure Network Protection, cloud protection, and scanning settings
 - Set default remediation actions per threat severity level
-- View recent ASR and CFA events from the Windows event log
+- View recent ASR, CFA, and Smart App Control (SAC) events from the Windows event logs, with a
+  per-event block-details view (reason, SHA256, signing level, signer, reputation, SAC policy)
+- View threat detection history
 - WinForms GUI front-end - no PowerShell experience required
 - Write operations routed through a persistent elevated NamedPipe server (single UAC prompt per session)
 
@@ -17,14 +19,14 @@ A PowerShell module for managing Microsoft Defender configuration on Windows 10/
 
 - Windows 10 / Windows 11
 - Windows PowerShell 5.1
-- [NamedPipe module v0.6](https://github.com/RG255/NamedPipe)
+- [NamedPipe module v0.9](https://github.com/RG255/NamedPipe)
 
 ## Installation
 
 1. Install the NamedPipe module (required dependency).
-2. Copy the `ConfigureDefender\0.1` folder to a path in `$env:PSModulePath`, e.g.:
+2. Copy the `ConfigureDefender\0.3` folder to a path in `$env:PSModulePath`, e.g.:
    ```
-   %USERPROFILE%\Documents\WindowsPowerShell\Modules\ConfigureDefender\0.1\
+   %USERPROFILE%\Documents\WindowsPowerShell\Modules\ConfigureDefender\0.3\
    ```
 3. Import and launch:
    ```powershell

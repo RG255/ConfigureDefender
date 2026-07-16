@@ -83,6 +83,7 @@ $script:FunctionExportTable = @{
 	'Set-CDAllowedApplication'     = $true
 	'Set-CDControlledFolderAccess' = $true
 	'Set-CDNetworkProtection'      = $true
+	'Set-CDCIVerbose'              = $true
 	# Pipe session management - GUI process only
 	'Open-CDPipeSession'           = $true
 	'Close-CDPipeSession'          = $true
