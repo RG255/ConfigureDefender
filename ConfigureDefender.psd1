@@ -18,7 +18,7 @@
 	RequiredModules   = @(
 		@{
 			ModuleName      = 'NamedPipe'
-			RequiredVersion = '0.9'
+			RequiredVersion = '0.12'
 		}
 	)
 	# Explicit exports so PowerShell can AUTO-LOAD the module on first use of any of

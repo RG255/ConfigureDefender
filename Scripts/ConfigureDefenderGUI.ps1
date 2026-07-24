@@ -278,8 +278,10 @@ $TabControl.Dock = 'Fill'
 $TabControl.Font = New-Object System.Drawing.Font('Segoe UI', 9)
 $Form.Controls.Add($TabControl)
 
-function New-Tab ([string]$Title)
+function New-Tab
 {
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'GUI helper that only builds an in-memory WinForms TabPage; changes no system state')]
+	Param ([string]$Title)
 	$Tab      = New-Object System.Windows.Forms.TabPage
 	$Tab.Text = $Title
 	$TabControl.TabPages.Add($Tab)
