@@ -14,6 +14,11 @@ All notable changes to this project will be documented in this file.
 - Get-CDEvents: new -Filter SAC-Allow value that reads SAC ALLOW decisions (event 3075 "...validated <Level> signing level", enriched by 3088 per-module policy test for Smartlocker / Defender-trust / policy) from the CodeIntegrity/Verbose channel (no elevation needed to read; works even after the channel is disabled again). Rows come back as EventType 'Smart App Control (allowed)', RuleInfo 'Allowed - validated <Level>'.
 - GUI Tab 6 (Events): "Log SAC Allows" toggle enables the Verbose channel (single UAC via Set-CDCIVerbose over the pipe), runs a single-shot 60s timer, and auto-disables. Then the SAC-Allow filter shows the captured allows as green rows with full Details, so you can compare in the same grid why one app was allowed against why another was blocked. (The toggle went through a couple of iterations: the first wevtutil-based enable deadlocked the elevated pipe server - fixed by switching Set-CDCIVerbose to the in-process EventLogConfiguration API - and the auto-off is a plain single-shot timer with no per-second countdown / DoEvents / FormClosing hook, which had caused an earlier loop/hang.) Scripts\Trace-SmartAppControl.ps1 does the same standalone from an elevated console.
 
+### Changed
+
+- Dependency: bumped the required NamedPipe module from v0.9 to v0.12 (RequiredVersion in the manifest); all current active modules track NamedPipe 0.12.
+- Open-CDPipeSession: the elevated server now loads the SAME ConfigureDefender version that is running (version + module path derived at runtime from the calling module) instead of a hardcoded version, so a module bump can no longer skew the server to older code. An explicit -ModuleVersion override loads that version by name (resolved from PSModulePath, Path left null); if the running version cannot be determined and no override is given it now throws a clear error rather than spawning a server with an unresolved version.
+
 ### Security
 
 - Set-CDExclusionPath: path validation (ValidateScript) rejecting empty input, UNC paths, invalid characters, and paths over 260 chars.

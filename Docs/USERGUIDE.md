@@ -21,7 +21,7 @@ Write operations that require elevation are routed through a NamedPipe elevated 
 - Inspect Defender event log (ASR and CFA violations)
 - GUI front-end with elevation via NamedPipe (no UAC prompt on each action)
 
-**Dependencies:** NamedPipe module v0.6, PowerShell 5.1+, Windows only.
+**Dependencies:** NamedPipe module v0.12, PowerShell 5.1+, Windows only.
 
 ## Architecture
 
@@ -84,8 +84,8 @@ Opens the elevated NamedPipe server. Idempotent - safe to call repeatedly. If a 
 session already exists it returns immediately without starting a new one.
 
 ```powershell
-Open-CDPipeSession                  # default: loads ConfigureDefender v0.1
-Open-CDPipeSession -ModuleVersion '0.1'
+Open-CDPipeSession                  # default: loads the SAME ConfigureDefender version that is running
+Open-CDPipeSession -ModuleVersion '0.2'   # override: load a specific ConfigureDefender version server-side
 ```
 
 The elevated server imports the ConfigureDefender module, making all `Set-CD*` and

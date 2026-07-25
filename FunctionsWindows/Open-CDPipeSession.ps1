@@ -36,9 +36,29 @@ Function Open-CDPipeSession
 
 	# Identify the running ConfigureDefender module so the elevated server loads that exact version + path.
 	# $ExecutionContext.SessionState.Module is the module that owns this function (ConfigureDefender).
-	$Private:CDMod  = $ExecutionContext.SessionState.Module
-	$Private:CDVer  = if ($ModuleVersion) { $ModuleVersion } elseif ($Private:CDMod) { [String]$Private:CDMod.Version } else { '' }
-	$Private:CDPsd1 = if ($Private:CDMod) { Join-Path -Path $Private:CDMod.ModuleBase -ChildPath ($Private:CDMod.Name + '.psd1') } else { $null }
+	$Private:CDMod = $ExecutionContext.SessionState.Module
+
+	if ($ModuleVersion)
+	{
+		# Explicit override: load the requested version BY NAME + VERSION. Do NOT pin Path to the running
+		# module's psd1 - NamedPipe imports by Path when one is set, which would load the RUNNING version's
+		# code under the requested label (the override would be silently ignored). Leaving Path null makes
+		# NamedPipe fall back to Import-Module -Name ConfigureDefender -RequiredVersion <override>.
+		$Private:CDVer  = $ModuleVersion
+		$Private:CDPsd1 = $null
+	}
+	elseif ($Private:CDMod)
+	{
+		# Default: derive the exact running version + psd1 path so the server loads the SAME code.
+		$Private:CDVer  = [String]$Private:CDMod.Version
+		$Private:CDPsd1 = Join-Path -Path $Private:CDMod.ModuleBase -ChildPath ($Private:CDMod.Name + '.psd1')
+	}
+	else
+	{
+		# Neither an override nor a resolvable running module (e.g. dot-sourced outside module scope): fail
+		# LOUD rather than spawning a server with an unresolved version, which NamedPipe cannot import.
+		throw 'Open-CDPipeSession: cannot determine the ConfigureDefender version to load on the elevated server. Call it as a module function, or pass -ModuleVersion explicitly.'
+	}
 
 	$PipeOptions = @{
 		AdminRequired        = $true
