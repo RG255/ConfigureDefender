@@ -46,8 +46,8 @@ Describe 'Module Import' {
 		Get-Module -Name ConfigureDefender | Should -Not -BeNullOrEmpty
 	}
 
-	It 'Should be version 0.1' {
-		(Get-Module -Name ConfigureDefender).Version.ToString() | Should -Be '0.1'
+	It 'Should be version 0.3' {
+		(Get-Module -Name ConfigureDefender).Version.ToString() | Should -Be '0.3'
 	}
 
 	It 'Should have the correct GUID' {
@@ -66,7 +66,7 @@ Describe 'Module Import' {
 			'Set-CDExclusionPath', 'Set-CDExclusionExtension',
 			'Set-CDExclusionIpAddress', 'Set-CDSetting', 'Set-CDThreatAction',
 			'Set-CDControlledFolder', 'Set-CDAllowedApplication',
-			'Set-CDControlledFolderAccess', 'Set-CDNetworkProtection',
+			'Set-CDControlledFolderAccess', 'Set-CDNetworkProtection', 'Set-CDCIVerbose',
 			'Open-CDPipeSession', 'Close-CDPipeSession', 'Start-ConfigureDefenderGUI'
 		)
 		$Exported = (Get-Module -Name ConfigureDefender).ExportedFunctions.Keys | Sort-Object
