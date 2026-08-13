@@ -64,6 +64,7 @@ Function Open-CDPipeSession
 		AdminRequired        = $true
 		WindowStyle          = 'Hidden'
 		InfoDisplay          = 1
+		NoExitOnError        = $true   # honoured from here as of NamedPipe 0.13 (see the note below)
 		ClientConnectTimeout = 30000   # ms; default 10000 is too short when UAC + module load are in the path
 		ModuleToLoad         = @{
 			Name    = 'ConfigureDefender'
@@ -77,17 +78,19 @@ Function Open-CDPipeSession
 	$script:CDPipeInfo          = $Session.'ServerClientParams'
 	$script:CDSendRequestParams = $Session.'SendRequestParams'
 
-	# Set the key DIRECTLY - it cannot be set through the session Options above.
+	# Belt-and-braces: $PipeOptions above now carries NoExitOnError, and NamedPipe 0.13 honours it,
+	# so this assignment is normally redundant. It is kept as the single explicit statement of intent
+	# because the value MUST be true and the cost of it silently being false is invisible failures.
 	#
-	# Every caller used to write "Send-Request @SRP -NoExitOnError", but SendRequestParams already
-	# CONTAINS a NoExitOnError key, so the explicit switch was a duplicate bind and the call always
-	# threw "parameter 'NoExitOnError' is specified more than once". All 41 call sites in this module
-	# were dead; the ConfigureDefender integration suite caught it on the first test that actually
-	# reaches the pipe (the GET tests call the module functions locally and never noticed).
+	# History, because it explains why callers must NOT reintroduce the switch: every call site used
+	# to write "Send-Request @SRP -NoExitOnError", but SendRequestParams already CONTAINS a
+	# NoExitOnError key, so the explicit switch was a duplicate bind and the call always threw
+	# "parameter 'NoExitOnError' is specified more than once". All 41 call sites in this module were
+	# dead. The integration suite caught it on the first test that actually reaches the pipe - the GET
+	# tests call the module functions locally and never noticed.
 	#
-	# The switch has been removed from those call sites, so the value now has to come from here. It
-	# cannot come from $PipeOptions: passing NoExitOnError = $true to Start-PipeSession still stores
-	# $false (measured 2026-08-13 against NamedPipe 0.13), which is a separate NamedPipe defect.
-	# Without this line, removing the switch would silently turn the behaviour OFF rather than fix it.
+	# Until 2026-08-13 the option could not be set through $PipeOptions at all: Set-ObjectParams built
+	# the SendRequestParams dataset by reading a variable named $ServerClientParams, which is not one
+	# of its parameters, so the value silently defaulted to $false. Fixed in NamedPipe 0.13.
 	$script:CDSendRequestParams.'NoExitOnError' = $true
 }
