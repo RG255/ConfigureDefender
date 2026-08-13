@@ -1,4 +1,4 @@
-#region Tab 1 - ASR Rules
+﻿#region Tab 1 - ASR Rules
 
 $TabASR = New-Tab 'ASR Rules'
 

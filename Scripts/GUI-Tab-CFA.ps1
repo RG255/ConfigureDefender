@@ -1,4 +1,4 @@
-#region Tab 7 - Controlled Folders
+﻿#region Tab 7 - Controlled Folders
 $TabCF = New-Tab 'Controlled Folders'
 
 # SplitContainer: top = protected folders, bottom = allowed apps (collapsed by default)

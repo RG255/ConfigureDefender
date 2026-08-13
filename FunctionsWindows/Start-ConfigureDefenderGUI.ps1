@@ -1,4 +1,4 @@
-function Start-ConfigureDefenderGUI
+﻿function Start-ConfigureDefenderGUI
 {
 	<#
 	.SYNOPSIS

@@ -1,4 +1,4 @@
-#region Tab 9 - Settings
+﻿#region Tab 9 - Settings
 
 $TabSettings = New-Tab 'Settings'
 

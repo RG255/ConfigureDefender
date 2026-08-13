@@ -1,4 +1,4 @@
-#region Shared helpers - dialog functions and input validation
+﻿#region Shared helpers - dialog functions and input validation
 # Dot-sourced before all GUI-Tab-*.ps1 files so every tab can call these.
 
 # ---------------------------------------------------------------------------

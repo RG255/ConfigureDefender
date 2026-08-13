@@ -1,4 +1,4 @@
-#region History Tab (Tab 6 - index 6)
+﻿#region History Tab (Tab 6 - index 6)
 $TabHist = New-Tab 'History'
 
 #region ToolStrip

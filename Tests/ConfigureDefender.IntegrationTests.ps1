@@ -1,4 +1,4 @@
-#requires -Version 5.0
+﻿#requires -Version 5.0
 <#
     .SYNOPSIS
     Functional integration tests for the ConfigureDefender module.

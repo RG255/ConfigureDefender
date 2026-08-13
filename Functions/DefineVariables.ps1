@@ -1,4 +1,4 @@
-#requires -Version 5.0
+﻿#requires -Version 5.0
 #
 # Bootstrap variables required by the Publish-Variables mechanism
 # Must be processed first so subsequent calls can use $VSScript / $VOReadOnly etc.
