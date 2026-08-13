@@ -1,4 +1,4 @@
-#region Tab 10 - Threat Actions
+﻿#region Tab 10 - Threat Actions
 $TabThreat = New-Tab 'Threat Actions'
 
 $ToolStripThreat      = New-Object System.Windows.Forms.ToolStrip
@@ -455,15 +455,21 @@ function Save-SacAllowCapture ($Rows)
 # merged and sorted chronologically so a saved file shows the full allow/block sequence.
 function Get-SacCapture
 {
+	# THROW on a failed read rather than degrading to an empty list. This output is written to a
+	# SAVED EVIDENCE FILE, so a swallowed read failure produced a file that looked complete while
+	# silently missing events - the worst possible outcome for evidence. Callers are ready for it:
+	# the Save button wraps Get-SacCapture in a try/catch that reports to the status line.
 	$Allows = @()
-	try { $Allows = @(Get-CDEvents -Filter SAC-Allow) } catch { $null = $_ }
+	try { $Allows = @(Get-CDEvents -Filter SAC-Allow) }
+	catch { throw ('Get-SacCapture: could not read SAC-Allow events - refusing to save a partial capture. {0}' -f $_.Exception.Message) }
 	# Include ALL SAC blocks from the current session (Get-CDEvents default = since last boot), so
 	# BOOT-TIME blocks - e.g. a service blocked as it started at boot, before logging was even on -
 	# appear alongside the allows captured after logging started. That is the "blocked at boot, allowed
 	# after a restart" story. Blocks are logged to the Operational log regardless of the Verbose channel,
 	# are sparse, and are merged + time-sorted with all the allows captured since logging was enabled.
 	$Blocks = @()
-	try { $Blocks = @(Get-CDEvents -Filter SAC) } catch { $null = $_ }
+	try { $Blocks = @(Get-CDEvents -Filter SAC) }
+	catch { throw ('Get-SacCapture: could not read SAC block events - refusing to save a partial capture. {0}' -f $_.Exception.Message) }
 	if ($Allows.Count -eq 0 -and $Blocks.Count -eq 0) { return @() }
 	return @($Allows + $Blocks) | Sort-Object TimeCreated
 }
@@ -549,16 +555,31 @@ $script:LogAllowsTimer       = New-Object System.Windows.Forms.Timer
 
 $script:LogAllowsTimer.Add_Tick({
 	$script:LogAllowsTimer.Stop()
+	# Only claim the channel was turned OFF if it actually was. Previously any failure was
+	# swallowed and execution carried straight on to untick the toggle and report "SAC allow
+	# logging auto-off" - telling the user CodeIntegrity Verbose logging had stopped when it may
+	# still be running. That channel is high-volume, which is the whole reason this auto-off
+	# timer and the next-reboot watchdog exist, so a false "it is off" is exactly wrong.
+	# NOTE Send-Request reports server-side failure in $DataObject.Error - it does NOT throw - so
+	# the catch alone was never sufficient; the returned Error has to be inspected as well.
+	$Private:OffOK  = $false
+	$Private:OffWhy = ''
 	try
 	{
 		$SRP = Get-CDSRP
 		$SRP.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @SRP -NoExitOnError
+		if ([string]::IsNullOrWhiteSpace([string]$SRP.DataObject.Error)) { $Private:OffOK = $true }
+		else { $Private:OffWhy = [string]$SRP.DataObject.Error }
 	}
-	catch { $null = $_ }
+	catch { $Private:OffWhy = $_.Exception.Message }
 	$script:LogAllowsBusy = $true
-	$TsBtnLogAllows.Checked = $false
+	# Leave the toggle showing ON when the disable failed - it then reflects the REAL state.
+	$TsBtnLogAllows.Checked = -not $Private:OffOK
 	$script:LogAllowsBusy = $false
-	$StatusLabel.Text = 'SAC allow logging auto-off. Pick the SAC-Allow filter and Refresh to view captured allows.'
+	if ($Private:OffOK)
+	{ $StatusLabel.Text = 'SAC allow logging auto-off. Pick the SAC-Allow filter and Refresh to view captured allows.' }
+	else
+	{ $StatusLabel.Text = 'WARNING: auto-off FAILED - SAC allow logging may STILL BE ON. Turn it off manually. ' + $Private:OffWhy }
 })
 
 $TsBtnLogAllows.Add_CheckedChanged({
@@ -566,8 +587,24 @@ $TsBtnLogAllows.Add_CheckedChanged({
 	if ($TsBtnLogAllows.Checked)
 	{
 		# Enabling the Verbose channel CLEARS any prior capture - offer to save it first.
-		$LAExisting = @()
-		try { $LAExisting = @(Get-CDEvents -Filter SAC-Allow) } catch { $null = $_ }
+		# Distinguish "there is nothing to save" from "we could not tell". Previously a FAILED read
+		# left the count at 0, so the save prompt was SKIPPED and enabling logging then CLEARED
+		# events the user was never offered the chance to keep - silent loss of captured evidence.
+		$LAExisting  = @()
+		$LAReadFailed = $false
+		try { $LAExisting = @(Get-CDEvents -Filter SAC-Allow) }
+		catch { $LAReadFailed = $true }
+
+		if ($LAReadFailed)
+		{
+			$LARisk = [System.Windows.Forms.MessageBox]::Show(
+				("Could not read the existing SAC allow capture, so it is not known whether there is anything to save." +
+				 "`n`nStarting logging CLEARS any previous capture. Continue anyway?"),
+				'Cannot check existing capture', 'YesNo', 'Warning')
+			if ($LARisk -ne 'Yes')
+			{ $script:LogAllowsBusy = $true; $TsBtnLogAllows.Checked = $false; $script:LogAllowsBusy = $false; $StatusLabel.Text = 'Logging not started.'; return }
+		}
+
 		if ($LAExisting.Count -gt 0)
 		{
 			$LAAns = [System.Windows.Forms.MessageBox]::Show(
@@ -575,8 +612,22 @@ $TsBtnLogAllows.Add_CheckedChanged({
 				'Save existing capture?', 'YesNoCancel', 'Question')
 			if ($LAAns -eq 'Cancel')
 			{ $script:LogAllowsBusy = $true; $TsBtnLogAllows.Checked = $false; $script:LogAllowsBusy = $false; $StatusLabel.Text = 'Logging not started.'; return }
-			if ($LAAns -eq 'Yes' -and -not (Save-SacAllowCapture (Get-SacCapture)))
-			{ $script:LogAllowsBusy = $true; $TsBtnLogAllows.Checked = $false; $script:LogAllowsBusy = $false; $StatusLabel.Text = 'Logging not started (save cancelled).'; return }
+			# Get-SacCapture now THROWS on a failed read rather than returning a partial capture,
+			# so this call needs a handler: without one the exception would escape into the
+			# CheckedChanged event and the user would lose the capture they asked to save.
+			if ($LAAns -eq 'Yes')
+			{
+				$LASaved = $false
+				try { $LASaved = [bool](Save-SacAllowCapture (Get-SacCapture)) }
+				catch
+				{
+					$script:LogAllowsBusy = $true; $TsBtnLogAllows.Checked = $false; $script:LogAllowsBusy = $false
+					$StatusLabel.Text = 'Logging not started - could not save the existing capture: ' + $_.Exception.Message
+					return
+				}
+				if (-not $LASaved)
+				{ $script:LogAllowsBusy = $true; $TsBtnLogAllows.Checked = $false; $script:LogAllowsBusy = $false; $StatusLabel.Text = 'Logging not started (save cancelled).'; return }
+			}
 		}
 		$LAMins = 0
 		[void][int]::TryParse($TsTxtAutoOff.Text, [ref]$LAMins)

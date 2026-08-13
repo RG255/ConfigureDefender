@@ -1,4 +1,4 @@
-#!/usr/bin/env powershell
+﻿#!/usr/bin/env powershell
 #requires -Version 5.0
 #
 <#
@@ -16,7 +16,7 @@
 
 	.EXAMPLE
 	Remove-Module ConfigureDefender -Force -ErrorAction SilentlyContinue
-	Import-Module ConfigureDefender -RequiredVersion 0.1
+	Import-Module ConfigureDefender -RequiredVersion 0.3
 #>
 try
 {
