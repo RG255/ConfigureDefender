@@ -88,7 +88,7 @@ $TsBtnCFAdd.Add_Click({
 		{
 			$SRP     = Get-CDSRP
 			$Escaped = $F -replace "'", "''"
-			$SRP.DataObject = "Set-CDControlledFolder -Folder '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDControlledFolder -Folder '$Escaped' -Add" | Send-Request @SRP
 			if ($SRP.DataObject.Error)
 			{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 			else
@@ -110,7 +110,7 @@ $TsBtnCFRemove.Add_Click({
 		{
 			$F       = $Li.Text
 			$Escaped = $F -replace "'", "''"
-			$SRP.DataObject = "Set-CDControlledFolder -Folder '$Escaped' -Remove" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDControlledFolder -Folder '$Escaped' -Remove" | Send-Request @SRP
 			if ($SRP.DataObject.Error)
 			{ $ErrCount++; $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 			else
@@ -203,7 +203,7 @@ $TsBtnAppsRefresh.Add_Click({
 	try
 	{
 		$SRP = Get-CDSRP
-		$SRP.DataObject = 'Get-CDAllowedApplications' | Send-Request @SRP -NoExitOnError
+		$SRP.DataObject = 'Get-CDAllowedApplications' | Send-Request @SRP
 		if ($SRP.DataObject.Error)
 		{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
 		$script:AllowedAppsCache = @($SRP.DataObject.Result)
@@ -283,7 +283,7 @@ $TsBtnAppsAdd.Add_Click({
 		{
 			$SRP     = Get-CDSRP
 			$Escaped = $A -replace "'", "''"
-			$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add" | Send-Request @SRP
 			if ($SRP.DataObject.Error)
 			{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 			else
@@ -312,9 +312,9 @@ $LvApps.Add_DoubleClick({
 			$SRP    = Get-CDSRP
 			$EscOld = $OldPath -replace "'", "''"
 			$EscNew = $NewPath -replace "'", "''"
-			$SRP.DataObject = "Set-CDAllowedApplication -Path '$EscOld' -Remove" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDAllowedApplication -Path '$EscOld' -Remove" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old entry: $($SRP.DataObject.Error)"; return }
-			$SRP.DataObject = "Set-CDAllowedApplication -Path '$EscNew' -Add" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDAllowedApplication -Path '$EscNew' -Add" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new entry: $($SRP.DataObject.Error)"; return }
 			$TsBtnAppsRefresh.PerformClick()
 		}
@@ -334,7 +334,7 @@ $TsBtnAppsRemove.Add_Click({
 		{
 			$A       = $Li.SubItems[1].Text
 			$Escaped = $A -replace "'", "''"
-			$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Remove" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Remove" | Send-Request @SRP
 			if ($SRP.DataObject.Error)
 			{ $ErrCount++; $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 			else
@@ -350,7 +350,7 @@ $TsBtnAppsRemoveMissing.Add_Click({
 	try
 	{
 		$SRP = Get-CDSRP
-		$SRP.DataObject = 'Set-CDAllowedApplication -RemoveMissing' | Send-Request @SRP -NoExitOnError
+		$SRP.DataObject = 'Set-CDAllowedApplication -RemoveMissing' | Send-Request @SRP
 		if ($SRP.DataObject.Error)
 		{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 		else

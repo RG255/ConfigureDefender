@@ -296,7 +296,7 @@ function Invoke-ExclRefresh
 			'ASR'  {
 				# AttackSurfaceReductionOnlyExclusions requires elevation
 				$SRP = Get-CDSRP
-				$SRP.DataObject = 'Get-CDASRExclusions' | Send-Request @SRP -NoExitOnError
+				$SRP.DataObject = 'Get-CDASRExclusions' | Send-Request @SRP
 				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
 				$script:ASRExclCache = @($SRP.DataObject.Result)
 				Update-ExclASRView
@@ -305,7 +305,7 @@ function Invoke-ExclRefresh
 			'Proc' {
 				# ExclusionProcess requires elevation
 				$SRP = Get-CDSRP
-				$SRP.DataObject = 'Get-CDExclusionProcesses' | Send-Request @SRP -NoExitOnError
+				$SRP.DataObject = 'Get-CDExclusionProcesses' | Send-Request @SRP
 				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
 				$script:ExclProcCache = @($SRP.DataObject.Result)
 				Update-ExclProcView
@@ -313,7 +313,7 @@ function Invoke-ExclRefresh
 			}
 			'Path' {
 				$SRP = Get-CDSRP
-				$SRP.DataObject = 'Get-CDExclusionPaths' | Send-Request @SRP -NoExitOnError
+				$SRP.DataObject = 'Get-CDExclusionPaths' | Send-Request @SRP
 				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
 				$script:ExclPathCache = @($SRP.DataObject.Result)
 				Update-ExclPathView
@@ -321,7 +321,7 @@ function Invoke-ExclRefresh
 			}
 			'Ext'  {
 				$SRP = Get-CDSRP
-				$SRP.DataObject = 'Get-CDExclusionExtensions' | Send-Request @SRP -NoExitOnError
+				$SRP.DataObject = 'Get-CDExclusionExtensions' | Send-Request @SRP
 				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
 				$script:ExclExtCache = @($SRP.DataObject.Result)
 				Update-ExclExtView
@@ -329,7 +329,7 @@ function Invoke-ExclRefresh
 			}
 			'IP'   {
 				$SRP = Get-CDSRP
-				$SRP.DataObject = 'Get-CDExclusionIpAddresses' | Send-Request @SRP -NoExitOnError
+				$SRP.DataObject = 'Get-CDExclusionIpAddresses' | Send-Request @SRP
 				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
 				$script:ExclIPCache = @($SRP.DataObject.Result)
 				Update-ExclIPView
@@ -400,23 +400,23 @@ $TsBtnExclAdd.Add_Click({
 			switch ($script:ExclCategory)
 			{
 				'ASR'  {
-					$SRP.DataObject = "Set-CDASRExclusion -Path '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
+					$SRP.DataObject = "Set-CDASRExclusion -Path '$Escaped' -Add" | Send-Request @SRP
 					if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
 				}
 				'Proc' {
-					$SRP.DataObject = "Set-CDExclusionProcess -Process '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
+					$SRP.DataObject = "Set-CDExclusionProcess -Process '$Escaped' -Add" | Send-Request @SRP
 					if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
 				}
 				'Path' {
-					$SRP.DataObject = "Set-CDExclusionPath -Path '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
+					$SRP.DataObject = "Set-CDExclusionPath -Path '$Escaped' -Add" | Send-Request @SRP
 					if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
 				}
 				'Ext'  {
-					$SRP.DataObject = "Set-CDExclusionExtension -Extension '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
+					$SRP.DataObject = "Set-CDExclusionExtension -Extension '$Escaped' -Add" | Send-Request @SRP
 					if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
 				}
 				'IP'   {
-					$SRP.DataObject = "Set-CDExclusionIpAddress -IpAddress '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
+					$SRP.DataObject = "Set-CDExclusionIpAddress -IpAddress '$Escaped' -Add" | Send-Request @SRP
 					if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
 				}
 			}
@@ -443,9 +443,9 @@ $LvExclASR.Add_DoubleClick({
 		try
 		{
 			$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
-			$SRP.DataObject = "Set-CDASRExclusion -Path '$EscOld' -Remove" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDASRExclusion -Path '$EscOld' -Remove" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old path: $($SRP.DataObject.Error)"; return }
-			$SRP.DataObject = "Set-CDASRExclusion -Path '$EscNew' -Add" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDASRExclusion -Path '$EscNew' -Add" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new path: $($SRP.DataObject.Error)"; return }
 			$TsBtnExclRefresh.PerformClick()
 		}
@@ -470,9 +470,9 @@ $LvProc.Add_DoubleClick({
 		try
 		{
 			$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
-			$SRP.DataObject = "Set-CDExclusionProcess -Process '$EscOld' -Remove" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDExclusionProcess -Process '$EscOld' -Remove" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old entry: $($SRP.DataObject.Error)"; return }
-			$SRP.DataObject = "Set-CDExclusionProcess -Process '$EscNew' -Add" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDExclusionProcess -Process '$EscNew' -Add" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new entry: $($SRP.DataObject.Error)"; return }
 			$TsBtnExclRefresh.PerformClick()
 		}
@@ -497,9 +497,9 @@ $LvPath.Add_DoubleClick({
 		try
 		{
 			$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
-			$SRP.DataObject = "Set-CDExclusionPath -Path '$EscOld' -Remove" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDExclusionPath -Path '$EscOld' -Remove" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old path: $($SRP.DataObject.Error)"; return }
-			$SRP.DataObject = "Set-CDExclusionPath -Path '$EscNew' -Add" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDExclusionPath -Path '$EscNew' -Add" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new path: $($SRP.DataObject.Error)"; return }
 			$TsBtnExclRefresh.PerformClick()
 		}
@@ -524,9 +524,9 @@ $LvExt.Add_DoubleClick({
 		try
 		{
 			$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
-			$SRP.DataObject = "Set-CDExclusionExtension -Extension '$EscOld' -Remove" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDExclusionExtension -Extension '$EscOld' -Remove" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old extension: $($SRP.DataObject.Error)"; return }
-			$SRP.DataObject = "Set-CDExclusionExtension -Extension '$EscNew' -Add" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDExclusionExtension -Extension '$EscNew' -Add" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new extension: $($SRP.DataObject.Error)"; return }
 			$TsBtnExclRefresh.PerformClick()
 		}
@@ -549,9 +549,9 @@ $LvIP.Add_DoubleClick({
 		try
 		{
 			$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
-			$SRP.DataObject = "Set-CDExclusionIpAddress -IpAddress '$EscOld' -Remove" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDExclusionIpAddress -IpAddress '$EscOld' -Remove" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old IP: $($SRP.DataObject.Error)"; return }
-			$SRP.DataObject = "Set-CDExclusionIpAddress -IpAddress '$EscNew' -Add" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDExclusionIpAddress -IpAddress '$EscNew' -Add" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new IP: $($SRP.DataObject.Error)"; return }
 			$TsBtnExclRefresh.PerformClick()
 		}
@@ -578,7 +578,7 @@ $TsBtnExclRemove.Add_Click({
 				'Ext'  { "Set-CDExclusionExtension -Extension '$Escaped' -Remove" }
 				'IP'   { "Set-CDExclusionIpAddress -IpAddress '$Escaped' -Remove" }
 			}
-			$SRP.DataObject = $Cmd | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = $Cmd | Send-Request @SRP
 			if ($SRP.DataObject.Error) { $ErrCount++; $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 			else { $Ok++ }
 		}

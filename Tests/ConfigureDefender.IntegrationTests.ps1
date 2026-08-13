@@ -69,7 +69,7 @@ function Invoke-PipeCommand
         [string]$Command,
         [hashtable]$SRP
     )
-    $SRP.'DataObject' = $Command | Send-Request @SRP -NoExitOnError
+    $SRP.'DataObject' = $Command | Send-Request @SRP
     $script:LastPipeError = $SRP.'DataObject'.Error
     $SRP.'DataObject'.Result
 }
@@ -240,7 +240,11 @@ try
             Write-TestHeader 'SetNP - Set-CDNetworkProtection round-trip'
             try
             {
-                $CurrentNP = Get-CDNetworkProtection
+                # .Description, not the object. Get-CDNetworkProtection returns a PSCustomObject
+                # (Value / Description), so switching on the object itself matched no branch and
+                # always hit the default, reporting "Unknown NP state: @{Value=1; Description=Enabled}"
+                # - a test defect that read like a module fault.
+                $CurrentNP = (Get-CDNetworkProtection).Description
                 Write-Host ("  Current NP state: {0}" -f $CurrentNP) -ForegroundColor Gray
 
                 $SetCmd = switch ($CurrentNP)
@@ -255,7 +259,7 @@ try
                 if ($script:LastPipeError)
                 { throw "Pipe error: $($script:LastPipeError)" }
 
-                $AfterNP = Get-CDNetworkProtection
+                $AfterNP = (Get-CDNetworkProtection).Description
                 if ($AfterNP -ne $CurrentNP)
                 { throw "State changed: expected '$CurrentNP', got '$AfterNP'" }
                 Write-Host ("  NP state after set: {0} (unchanged - correct)" -f $AfterNP) -ForegroundColor Gray
@@ -274,7 +278,9 @@ try
             Write-TestHeader 'SetCFA - Set-CDControlledFolderAccess round-trip'
             try
             {
-                $CurrentCFA = Get-CDControlledFolderAccess
+                # .Description for the same reason as SetNP above - Get-CDControlledFolderAccess
+                # returns a PSCustomObject (Value / Enabled / Description).
+                $CurrentCFA = (Get-CDControlledFolderAccess).Description
                 Write-Host ("  Current CFA state: {0}" -f $CurrentCFA) -ForegroundColor Gray
 
                 $SetCmd = switch ($CurrentCFA)
@@ -289,7 +295,7 @@ try
                 if ($script:LastPipeError)
                 { throw "Pipe error: $($script:LastPipeError)" }
 
-                $AfterCFA = Get-CDControlledFolderAccess
+                $AfterCFA = (Get-CDControlledFolderAccess).Description
                 if ($AfterCFA -ne $CurrentCFA)
                 { throw "State changed: expected '$CurrentCFA', got '$AfterCFA'" }
                 Write-Host ("  CFA state after set: {0} (unchanged - correct)" -f $AfterCFA) -ForegroundColor Gray

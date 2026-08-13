@@ -15,7 +15,7 @@ $ASRActionHandler = {
 		foreach ($Li in $Selected)
 		{
 			$GUID = $Li.Tag
-			$SRP.DataObject = "Set-CDASRRule -GUID '$GUID' -Action $Action" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDASRRule -GUID '$GUID' -Action $Action" | Send-Request @SRP
 			if ($SRP.DataObject.Error)
 			{
 				$ErrCount++

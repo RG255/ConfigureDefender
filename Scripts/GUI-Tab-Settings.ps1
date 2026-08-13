@@ -221,7 +221,7 @@ $LvSettings.Add_DoubleClick({
 			$SRP    = Get-CDSRP
 			$Name   = $Setting.Name
 			$ValStr = if ($NewVal -is [bool]) { if ($NewVal) { '`$true' } else { '`$false' } } else { "$NewVal" }
-			$SRP.DataObject = "Set-CDSetting -Name '$Name' -Value $ValStr" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDSetting -Name '$Name' -Value $ValStr" | Send-Request @SRP
 			if ($SRP.DataObject.Error)
 			{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 			else

@@ -29,7 +29,7 @@ $ThreatActionHandler = {
 		foreach ($Li in $Selected)
 		{
 			$Level = $Li.Tag
-			$SRP.DataObject = "Set-CDThreatAction -Level '$Level' -Action '$Action'" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDThreatAction -Level '$Level' -Action '$Action'" | Send-Request @SRP
 			if ($SRP.DataObject.Error)
 			{ $ErrCount++; $StatusLabel.Text = "Error on $Level : $($SRP.DataObject.Error)" }
 			else
@@ -286,7 +286,7 @@ $TsBtnEvAdd.Add_Click({
 			{
 				$SRP     = Get-CDSRP
 				$Escaped = $PathToAdd -replace "'", "''"
-				$SRP.DataObject = "Set-CDASRExclusion -Path '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
+				$SRP.DataObject = "Set-CDASRExclusion -Path '$Escaped' -Add" | Send-Request @SRP
 				if ($SRP.DataObject.Error)
 				{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 				else
@@ -310,7 +310,7 @@ $TsBtnEvAdd.Add_Click({
 			{
 				$SRP     = Get-CDSRP
 				$Escaped = $ProcName -replace "'", "''"
-				$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add" | Send-Request @SRP -NoExitOnError
+				$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add" | Send-Request @SRP
 				if ($SRP.DataObject.Error)
 				{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 				else
@@ -567,7 +567,7 @@ $script:LogAllowsTimer.Add_Tick({
 	try
 	{
 		$SRP = Get-CDSRP
-		$SRP.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @SRP -NoExitOnError
+		$SRP.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @SRP
 		if ([string]::IsNullOrWhiteSpace([string]$SRP.DataObject.Error)) { $Private:OffOK = $true }
 		else { $Private:OffWhy = [string]$SRP.DataObject.Error }
 	}
@@ -637,7 +637,7 @@ $TsBtnLogAllows.Add_CheckedChanged({
 		try
 		{
 			$SRP = Get-CDSRP
-			$SRP.DataObject = "Set-CDCIVerbose -WatchdogMinutes $LAMins" | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = "Set-CDCIVerbose -WatchdogMinutes $LAMins" | Send-Request @SRP
 			if ($SRP.DataObject.Error) { throw $SRP.DataObject.Error }
 			if ($LAMins -gt 0)
 			{
@@ -656,7 +656,7 @@ $TsBtnLogAllows.Add_CheckedChanged({
 					if ($TsBtnLogAllows.Checked -and -not $script:LogAllowsManual)
 					{
 						$s = Get-CDSendRequestParams
-						if ($s) { try { $s.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @s -NoExitOnError } catch { $null = $_ } }
+						if ($s) { try { $s.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @s } catch { $null = $_ } }
 					}
 				})
 				$script:LogAllowsCloseHooked = $true
@@ -674,7 +674,7 @@ $TsBtnLogAllows.Add_CheckedChanged({
 		try
 		{
 			$SRP = Get-CDSRP
-			$SRP.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @SRP -NoExitOnError
+			$SRP.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @SRP
 			$StatusLabel.Text = 'SAC allow logging OFF.'
 		}
 		catch { $StatusLabel.Text = 'Log Allows off error: ' + $_.Exception.Message }
@@ -701,7 +701,7 @@ $Form.Add_Shown({
 				try
 				{
 					$LcSrp = Get-CDSRP
-					$LcSrp.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @LcSrp -NoExitOnError
+					$LcSrp.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @LcSrp
 					$script:LogAllowsBusy = $true; $TsBtnLogAllows.Checked = $false; $script:LogAllowsBusy = $false
 					$StatusLabel.Text = 'SAC allow logging turned OFF.'
 				}

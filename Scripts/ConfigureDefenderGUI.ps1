@@ -40,7 +40,7 @@
 	  $Mod = Get-Module ConfigureDefender
 	  $SRP = $Mod.Invoke({ $script:CDSendRequestParams })
 	  $SRP.DataObject = 'Set-CDASRRule -GUID "{0}" -Action Blocked' -f $GUID
-	  Send-Request @SRP -NoExitOnError
+	  Send-Request @SRP
 	  $Result = $SRP.DataObject.Result
 	  $Err    = $SRP.DataObject.Error
 

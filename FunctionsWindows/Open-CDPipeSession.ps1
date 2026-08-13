@@ -76,4 +76,18 @@ Function Open-CDPipeSession
 
 	$script:CDPipeInfo          = $Session.'ServerClientParams'
 	$script:CDSendRequestParams = $Session.'SendRequestParams'
+
+	# Set the key DIRECTLY - it cannot be set through the session Options above.
+	#
+	# Every caller used to write "Send-Request @SRP -NoExitOnError", but SendRequestParams already
+	# CONTAINS a NoExitOnError key, so the explicit switch was a duplicate bind and the call always
+	# threw "parameter 'NoExitOnError' is specified more than once". All 41 call sites in this module
+	# were dead; the ConfigureDefender integration suite caught it on the first test that actually
+	# reaches the pipe (the GET tests call the module functions locally and never noticed).
+	#
+	# The switch has been removed from those call sites, so the value now has to come from here. It
+	# cannot come from $PipeOptions: passing NoExitOnError = $true to Start-PipeSession still stores
+	# $false (measured 2026-08-13 against NamedPipe 0.13), which is a separate NamedPipe defect.
+	# Without this line, removing the switch would silently turn the behaviour OFF rather than fix it.
+	$script:CDSendRequestParams.'NoExitOnError' = $true
 }
