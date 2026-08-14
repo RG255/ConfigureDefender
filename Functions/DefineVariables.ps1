@@ -88,6 +88,7 @@ $script:FunctionExportTable = @{
 	'Open-CDPipeSession'           = $true
 	'Close-CDPipeSession'          = $true
 	'Get-CDSendRequestParams'      = $true
+	'Test-CDPipeSession'           = $true
 	# GUI launcher
 	'Start-ConfigureDefenderGUI'   = $true
 }

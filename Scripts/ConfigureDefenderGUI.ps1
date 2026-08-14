@@ -62,12 +62,18 @@ Add-Type -AssemblyName System.Drawing
 #region Helpers
 function Get-CDSRP
 {
-	# Returns the SendRequestParams hashtable, opening the pipe session if needed.
+	# Returns the SendRequestParams hashtable, opening (or re-opening) the pipe session
+	# if needed. Checks health on EVERY call via Test-CDPipeSession, not only on the
+	# first - a session that was open at the start of the GUI session can die later
+	# (server process killed, machine slept, etc.), and until 2026-08-13 that state
+	# was invisible here: this function only ever inspected `-not $SRP`, which is
+	# false forever once a session has been opened once, so every call after the
+	# first skipped the health check that Open-CDPipeSession itself performs.
 	# Uses Get-CDSendRequestParams (a ConfigureDefender module function) rather than
 	# $Mod.Invoke() because Invoke() does not reliably resolve $script: variables
 	# from a scriptblock defined outside the module.
 	$SRP = Get-CDSendRequestParams
-	if (-not $SRP)
+	if (-not $SRP -or -not (Test-CDPipeSession))
 	{
 		# Show a non-modal wait dialog - pipe open is slow (UAC + process start)
 		$WaitDlg                 = New-Object System.Windows.Forms.Form

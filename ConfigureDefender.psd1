@@ -35,7 +35,7 @@
 		'Set-CDExclusionExtension', 'Set-CDExclusionIpAddress', 'Set-CDSetting', 'Set-CDThreatAction',
 		'Set-CDControlledFolder', 'Set-CDAllowedApplication', 'Set-CDControlledFolderAccess',
 		'Set-CDNetworkProtection', 'Set-CDCIVerbose', 'Open-CDPipeSession', 'Close-CDPipeSession',
-		'Get-CDSendRequestParams', 'Start-ConfigureDefenderGUI'
+		'Get-CDSendRequestParams', 'Test-CDPipeSession', 'Start-ConfigureDefenderGUI'
 	)
 	CmdletsToExport   = @()
 	# '*' not @(): the psm1 exports its variable vocabulary via Export-ModuleMember
