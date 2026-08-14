@@ -21,7 +21,7 @@ Write operations that require elevation are routed through a NamedPipe elevated 
 - Inspect Defender event log (ASR and CFA violations)
 - GUI front-end with elevation via NamedPipe (no UAC prompt on each action)
 
-**Dependencies:** NamedPipe module v0.12, PowerShell 5.1+, Windows only.
+**Dependencies:** NamedPipe module v0.13, PowerShell 5.1+, Windows only.
 
 ## Architecture
 
@@ -55,7 +55,7 @@ lifetime of the GUI session. The GUI calls `Open-CDPipeSession` to start it and
 ## Quick Start
 
 ```powershell
-Import-Module ConfigureDefender -RequiredVersion 0.1
+Import-Module ConfigureDefender -RequiredVersion 0.3
 
 # Read ASR rule states (no elevation)
 Get-CDASRRules
@@ -85,7 +85,7 @@ session already exists it returns immediately without starting a new one.
 
 ```powershell
 Open-CDPipeSession                  # default: loads the SAME ConfigureDefender version that is running
-Open-CDPipeSession -ModuleVersion '0.2'   # override: load a specific ConfigureDefender version server-side
+Open-CDPipeSession -ModuleVersion '0.3'   # override: load a specific ConfigureDefender version server-side
 ```
 
 The elevated server imports the ConfigureDefender module, making all `Set-CD*` and
@@ -561,6 +561,11 @@ handlers check `$Li.Tag -ne '$placeholder'` before acting.
 
 ### GUI Elevation Pattern
 
+`Get-CDSRP` re-checks session health (`Test-CDPipeSession`) on **every** call, not just the
+first - a fix made 2026-08-13 after the health check was found to only run once (a cached
+session short-circuited every later call, so a dropped pipe went unnoticed until an operation
+actually failed against it). Calling it repeatedly is cheap and safe.
+
 ```powershell
 # On first admin button click (Get-CDSRP opens session automatically):
 $SRP = Get-CDSRP    # opens pipe if not already open; UAC prompt appears once
@@ -891,7 +896,7 @@ a dropped session transparently.
 
 ### "Module not found" in elevated server
 Ensure ConfigureDefender is deployed to a path in `$env:PSModulePath` (e.g.
-`L:\OneDrive\Documents\WindowsPowerShell\Modules\ConfigureDefender\0.1\`).
+`C:\Program Files\WindowsPowerShell\Modules\ConfigureDefender\0.3\`).
 
 ### Get-CDEvents returns nothing (or the Events tab / SAC filter is empty)
 The event log query defaults to events since the last boot. Use `-Since` with an earlier

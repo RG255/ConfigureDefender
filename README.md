@@ -19,7 +19,7 @@ A PowerShell module for managing Microsoft Defender configuration on Windows 10/
 
 - Windows 10 / Windows 11
 - Windows PowerShell 5.1
-- [NamedPipe module v0.12](https://github.com/RG255/NamedPipe)
+- [NamedPipe module v0.13](https://github.com/RG255/NamedPipe)
 
 ## Installation
 
