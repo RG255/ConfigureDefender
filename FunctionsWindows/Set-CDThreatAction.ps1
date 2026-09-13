@@ -14,6 +14,8 @@ Function Set-CDThreatAction
 		.PARAMETER Action
 		The action to take: Clean, Quarantine, Remove, Allow, UserDefined, NoAction, or Block.
 	#>
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'Set-CDThreatAction writes a threat-action preference - state change is the explicit purpose of this function.')]
 	[CmdletBinding()]
 	param
 	(
@@ -26,16 +28,6 @@ Function Set-CDThreatAction
 		[string]$Action
 	)
 
-	$ActionMap = @{
-		Clean       = 0
-		Quarantine  = 1
-		Remove      = 2
-		Allow       = 6
-		UserDefined = 8
-		NoAction    = 9
-		Block       = 10
-	}
-
 	$PropertyMap = @{
 		Severe   = 'SevereThreatDefaultAction'
 		High     = 'HighThreatDefaultAction'
@@ -44,6 +36,11 @@ Function Set-CDThreatAction
 		Unknown  = 'UnknownThreatDefaultAction'
 	}
 
-	$Params = @{ $PropertyMap[$Level] = $ActionMap[$Action] }
+	# Set-MpPreference's -XxxThreatDefaultAction parameters are a real enum keyed by NAME
+	# (Clean, Quarantine, Remove, Allow, UserDefined, NoAction, Block, None) - $Action already
+	# matches those names via ValidateSet above, so pass it straight through. A prior numeric
+	# translation here (Clean=0, NoAction=9, ...) was wrong - the enum does not accept those
+	# integers, so every call failed with a ParameterArgumentTransformationError.
+	$Params = @{ $PropertyMap[$Level] = $Action }
 	Set-MpPreference @Params
 }

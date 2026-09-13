@@ -24,9 +24,9 @@ A PowerShell module for managing Microsoft Defender configuration on Windows 10/
 ## Installation
 
 1. Install the NamedPipe module (required dependency).
-2. Copy the `ConfigureDefender\0.3` folder to a path in `$env:PSModulePath`, e.g.:
+2. Copy the `ConfigureDefender\0.4` folder to a path in `$env:PSModulePath`, e.g.:
    ```
-   %USERPROFILE%\Documents\WindowsPowerShell\Modules\ConfigureDefender\0.3\
+   %USERPROFILE%\Documents\WindowsPowerShell\Modules\ConfigureDefender\0.4\
    ```
 3. Import and launch:
    ```powershell
@@ -51,14 +51,14 @@ The GUI opens a tabbed window. The first admin operation triggers a single UAC p
 Import-Module ConfigureDefender
 
 # Read operations - no elevation needed
-Get-CDASRRules
+Get-CDASRRule
 Get-CDNetworkProtection
-Get-CDSettings
-Get-CDEvents -Filter ASR -Since (Get-Date).AddDays(-7)
+Get-CDSetting
+Get-CDEvent -Filter ASR -Since (Get-Date).AddDays(-7)
 
 # Write operations - elevation required (triggers UAC once)
 Open-CDPipeSession
-$SRP = Get-CDSendRequestParams
+$SRP = Get-CDSendRequestParam
 $SRP.'DataObject' = 'Set-CDNetworkProtection -Enable' | Send-Request @SRP -NoExitOnError
 Close-CDPipeSession
 ```

@@ -50,7 +50,7 @@
 
 #region Module Load
 Remove-Module ConfigureDefender -Force -ErrorAction SilentlyContinue
-Import-Module ConfigureDefender -RequiredVersion 0.3 -Force -ErrorAction Stop
+Import-Module ConfigureDefender -RequiredVersion 0.4 -Force -ErrorAction Stop
 #endregion
 
 #region Assemblies
@@ -69,10 +69,10 @@ function Get-CDSRP
 	# was invisible here: this function only ever inspected `-not $SRP`, which is
 	# false forever once a session has been opened once, so every call after the
 	# first skipped the health check that Open-CDPipeSession itself performs.
-	# Uses Get-CDSendRequestParams (a ConfigureDefender module function) rather than
+	# Uses Get-CDSendRequestParam (a ConfigureDefender module function) rather than
 	# $Mod.Invoke() because Invoke() does not reliably resolve $script: variables
 	# from a scriptblock defined outside the module.
-	$SRP = Get-CDSendRequestParams
+	$SRP = Get-CDSendRequestParam
 	if (-not $SRP -or -not (Test-CDPipeSession))
 	{
 		# Show a non-modal wait dialog - pipe open is slow (UAC + process start)
@@ -103,7 +103,7 @@ function Get-CDSRP
 		{
 			$StatusLabel.Text = 'Opening elevated session...'
 			Open-CDPipeSession
-			$SRP = Get-CDSendRequestParams
+			$SRP = Get-CDSendRequestParam
 		}
 		catch
 		{
@@ -256,8 +256,17 @@ $Form.MaximizeBox     = $true
 
 # Close handler - always shut down the pipe session cleanly
 $Form.Add_FormClosing({
-	Close-CDPipeSession
-})
+		Close-CDPipeSession
+		# Auto-disable catch auditing (2026-08-20) - only when THIS launch turned it on via
+		# Start-ConfigureDefenderGUI -EnableCatchAudit, marked by this flag, so a separate manual
+		# Enable-MyCatchAudit call made before launching (a deliberate longer diagnostic session
+		# spanning multiple GUI launches) is left untouched.
+		If ($env:CDCatchAuditAutoDisable -eq '1')
+		{
+			$null = Disable-MyCatchAudit
+			$env:CDCatchAuditAutoDisable = $null
+		}
+	})
 #endregion
 
 #region Status Bar
@@ -320,39 +329,39 @@ function Add-EmptyPlaceholder ([System.Windows.Forms.ListView]$Lv, [string]$Text
 
 #region Initial Load
 $TabControl.Add_SelectedIndexChanged({
-	$StatusLabel.Text = 'Loading...'
-	$Form.UseWaitCursor = $true
-	[System.Windows.Forms.Application]::DoEvents()
-	try
-	{
-		switch ($TabControl.SelectedIndex)
+		$StatusLabel.Text = 'Loading...'
+		$Form.UseWaitCursor = $true
+		[System.Windows.Forms.Application]::DoEvents()
+		try
 		{
-			0 { $TsBtnSettingsRefresh.PerformClick() }
-			1 { $TsBtnRefresh.PerformClick() }
-			2 {
-				# Exclusions: update view from cache only - do not open the pipe until
-				# the user explicitly clicks a category button or Refresh
-				switch ($script:ExclCategory)
-				{
-					'ASR'  { Update-ExclASRView }
-					'Proc' { Update-ExclProcView }
-					'Path' { Update-ExclPathView }
-					'Ext'  { Update-ExclExtView }
-					'IP'   { Update-ExclIPView }
+			switch ($TabControl.SelectedIndex)
+			{
+				0 { $TsBtnSettingsRefresh.PerformClick() }
+				1 { $TsBtnRefresh.PerformClick() }
+				2 {
+					# Exclusions: update view from cache only - do not open the pipe until
+					# the user explicitly clicks a category button or Refresh
+					switch ($script:ExclCategory)
+					{
+						'ASR'  { Update-ExclASRView }
+						'Proc' { Update-ExclProcView }
+						'Path' { Update-ExclPathView }
+						'Ext'  { Update-ExclExtView }
+						'IP'   { Update-ExclIPView }
+					}
 				}
+				3 { $TsBtnCFRefresh.PerformClick() }
+				4 { $TsBtnThreatRefresh.PerformClick() }
+				5 { $TsBtnEvRefresh.PerformClick() }
+				6 { $TsBtnHistRefresh.PerformClick() }
 			}
-			3 { $TsBtnCFRefresh.PerformClick() }
-			4 { $TsBtnThreatRefresh.PerformClick() }
-			5 { $TsBtnEvRefresh.PerformClick() }
-			6 { $TsBtnHistRefresh.PerformClick() }
 		}
-	}
-	finally
-	{
-		$Form.UseWaitCursor = $false
-		[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
-	}
-})
+		finally
+		{
+			$Form.UseWaitCursor = $false
+			[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
+		}
+	})
 $Form.Add_Shown({ $TsBtnSettingsRefresh.PerformClick() })
 #endregion
 

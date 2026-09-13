@@ -18,17 +18,19 @@ Function Set-CDExclusionPath
 		.PARAMETER Remove
 		Remove the path from the exclusion list.
 	#>
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'Set-CDExclusionPath writes a path exclusion - state change is the explicit purpose of this function.')]
 	[CmdletBinding(DefaultParameterSetName = 'Add')]
 	param
 	(
 		[Parameter(Mandatory)]
 		[ValidateScript({
-			if ([string]::IsNullOrWhiteSpace($_)) { throw 'Path cannot be empty' }
-			if ($_ -like '\\*' -and -not $_.StartsWith('\\.\')) { throw 'UNC paths not allowed for exclusions' }
-			if ($_ -match '[<>"|]' -and -not $_.Contains('*')) { throw 'Invalid characters in path' }
-			if ($_.Length -gt 260) { throw 'Path exceeds Windows maximum length (260 characters)' }
-			$true
-		})]
+				if ([string]::IsNullOrWhiteSpace($_)) { throw 'Path cannot be empty' }
+				if ($_ -like '\\*' -and -not $_.StartsWith('\\.\')) { throw 'UNC paths not allowed for exclusions' }
+				if ($_ -match '[<>"|]' -and -not $_.Contains('*')) { throw 'Invalid characters in path' }
+				if ($_.Length -gt 260) { throw 'Path exceeds Windows maximum length (260 characters)' }
+				$true
+			})]
 		[string]$Path,
 
 		[Parameter(ParameterSetName = 'Add')]

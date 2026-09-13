@@ -21,15 +21,18 @@ $LvSettings.Columns.Add('Setting',  220) | Out-Null
 $LvSettings.Columns.Add('Value',    100) | Out-Null
 $LvSettings.Columns.Add('Description', 500) | Out-Null
 $LvSettings.Add_SizeChanged({
-	$w = $LvSettings.ClientSize.Width - 220 - 100 - 22
-	if ($w -gt 100) { $LvSettings.Columns[2].Width = $w }
-})
+		$w = $LvSettings.ClientSize.Width - 220 - 100 - 22
+		if ($w -gt 100) { $LvSettings.Columns[2].Width = $w }
+	})
 
 $TabSettings.Controls.Add($LvSettings)
 $TabSettings.Controls.Add($ToolStripSettings)
 
 function Update-SettingsView
 {
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'GUI helper that only refreshes an in-memory WinForms control''s displayed state; changes no system/Defender state.')]
+	Param ()
 	$LvSettings.Items.Clear()
 	if (-not $script:SettingsCache) { return }
 	foreach ($S in $script:SettingsCache)
@@ -63,21 +66,21 @@ function Update-SettingsView
 }
 
 $TsBtnSettingsRefresh.Add_Click({
-	$StatusLabel.Text = 'Loading...'
-	$Form.UseWaitCursor = $true
-	[System.Windows.Forms.Application]::DoEvents()
-	try
-	{
-		$script:SettingsCache = @(Get-CDSettings)
-		Update-SettingsView
-	}
-	catch { Write-OperationError -Operation 'Get-CDSettings' -ErrorInfo $_ }
-	finally
-	{
-		$Form.UseWaitCursor = $false
-		[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
-	}
-})
+		$StatusLabel.Text = 'Loading...'
+		$Form.UseWaitCursor = $true
+		[System.Windows.Forms.Application]::DoEvents()
+		try
+		{
+			$script:SettingsCache = @(Get-CDSetting)
+			Update-SettingsView
+		}
+		catch { Write-OperationError -Operation 'Get-CDSetting' -ErrorInfo $_ }
+		finally
+		{
+			$Form.UseWaitCursor = $false
+			[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
+		}
+	})
 
 # Edit dialog - adapts controls to Bool/Enum/Int type
 function Show-SettingEditDialog ([PSCustomObject]$Setting)
@@ -210,29 +213,29 @@ function Show-SettingEditDialog ([PSCustomObject]$Setting)
 }
 
 $LvSettings.Add_DoubleClick({
-	$Li = $LvSettings.FocusedItem
-	if (-not $Li) { return }
-	$Setting = $Li.Tag
-	$NewVal  = Show-SettingEditDialog $Setting
-	if ($null -ne $NewVal)
-	{
-		try
+		$Li = $LvSettings.FocusedItem
+		if (-not $Li) { return }
+		$Setting = $Li.Tag
+		$NewVal  = Show-SettingEditDialog $Setting
+		if ($null -ne $NewVal)
 		{
-			$SRP    = Get-CDSRP
-			$Name   = $Setting.Name
-			$ValStr = if ($NewVal -is [bool]) { if ($NewVal) { '`$true' } else { '`$false' } } else { "$NewVal" }
-			$SRP.DataObject = "Set-CDSetting -Name '$Name' -Value $ValStr" | Send-Request @SRP
-			if ($SRP.DataObject.Error)
-			{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-			else
+			try
 			{
-				$Setting.Value = $NewVal
-				$StatusLabel.Text = "Set $($Setting.FriendlyName) = $ValStr"
-				Update-SettingsView
+				$SRP    = Get-CDSRP
+				$Name   = $Setting.Name
+				$ValStr = if ($NewVal -is [bool]) { if ($NewVal) { '`$true' } else { '`$false' } } else { "$NewVal" }
+				$SRP.DataObject = "Set-CDSetting -Name '$Name' -Value $ValStr" | Send-Request @SRP
+				if ($SRP.DataObject.Error)
+				{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
+				else
+				{
+					$Setting.Value = $NewVal
+					$StatusLabel.Text = "Set $($Setting.FriendlyName) = $ValStr"
+					Update-SettingsView
+				}
 			}
+			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
 		}
-		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-	}
-})
+	})
 #endregion
 

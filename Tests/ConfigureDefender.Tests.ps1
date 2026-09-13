@@ -46,8 +46,8 @@ Describe 'Module Import' {
 		Get-Module -Name ConfigureDefender | Should -Not -BeNullOrEmpty
 	}
 
-	It 'Should be version 0.3' {
-		(Get-Module -Name ConfigureDefender).Version.ToString() | Should -Be '0.3'
+	It 'Should be version 0.4' {
+		(Get-Module -Name ConfigureDefender).Version.ToString() | Should -Be '0.4'
 	}
 
 	It 'Should have the correct GUID' {
@@ -56,18 +56,20 @@ Describe 'Module Import' {
 
 	It 'Should export exactly the expected public functions' {
 		$Expected = @(
-			'Get-CDASRRules', 'Get-CDEvents', 'Get-CDControlledFolders',
+			'Get-CDASRRule', 'Get-CDEvent', 'Get-CDControlledFolder',
 			'Get-CDNetworkProtection', 'Get-CDControlledFolderAccess',
-			'Get-CDASRExclusions', 'Get-CDExclusionProcesses',
-			'Get-CDExclusionPaths', 'Get-CDExclusionExtensions',
-			'Get-CDExclusionIpAddresses', 'Get-CDAllowedApplications',
-			'Get-CDSettings', 'Get-CDThreatActions', 'Get-CDThreatDetections', 'Get-CDSendRequestParams',
+			'Get-CDASRExclusion', 'Get-CDExclusionProcess',
+			'Get-CDExclusionPath', 'Get-CDExclusionExtension',
+			'Get-CDExclusionIpAddress', 'Get-CDAllowedApplication',
+			'Get-CDSetting', 'Get-CDThreatAction', 'Get-CDThreatDetection', 'Get-CDSendRequestParam',
 			'Set-CDASRRule', 'Set-CDASRExclusion', 'Set-CDExclusionProcess',
 			'Set-CDExclusionPath', 'Set-CDExclusionExtension',
 			'Set-CDExclusionIpAddress', 'Set-CDSetting', 'Set-CDThreatAction',
 			'Set-CDControlledFolder', 'Set-CDAllowedApplication',
 			'Set-CDControlledFolderAccess', 'Set-CDNetworkProtection', 'Set-CDCIVerbose',
-			'Open-CDPipeSession', 'Close-CDPipeSession', 'Start-ConfigureDefenderGUI'
+			'Open-CDPipeSession', 'Close-CDPipeSession', 'Start-ConfigureDefenderGUI', 'Test-CDPipeSession',
+			'Enable-MyCatchAudit', 'Disable-MyCatchAudit', 'Get-MyCatchAuditLog', 'Show-MyCatchAuditSummary',
+			'Clear-MyCatchAuditLog', 'Invoke-MyCatchAuditTriage'
 		)
 		$Exported = (Get-Module -Name ConfigureDefender).ExportedFunctions.Keys | Sort-Object
 		Compare-Object -ReferenceObject ($Expected | Sort-Object) -DifferenceObject $Exported |
@@ -138,17 +140,17 @@ Describe 'Data Structures' {
 }
 
 # ============================================================
-Describe 'Get-CDASRRules' {
+Describe 'Get-CDASRRule' {
 	BeforeAll {
 		Mock -ModuleName ConfigureDefender Get-MpPreference { return $Script:MpPref }
 	}
 
 	It 'Should return exactly 17 objects' {
-		@(Get-CDASRRules).Count | Should -Be 17
+		@(Get-CDASRRule).Count | Should -Be 17
 	}
 
 	It 'Each object should have GUID, Action, Description properties' {
-		Get-CDASRRules | ForEach-Object {
+		Get-CDASRRule | ForEach-Object {
 			$_.PSObject.Properties.Name | Should -Contain 'GUID'
 			$_.PSObject.Properties.Name | Should -Contain 'Action'
 			$_.PSObject.Properties.Name | Should -Contain 'Description'
@@ -156,12 +158,12 @@ Describe 'Get-CDASRRules' {
 	}
 
 	It 'Configured rule with action 1 should return Blocked' {
-		$Rule = Get-CDASRRules | Where-Object { $_.GUID -eq 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550' }
+		$Rule = Get-CDASRRule | Where-Object { $_.GUID -eq 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550' }
 		$Rule.Action | Should -Be 'Blocked'
 	}
 
 	It 'Unconfigured rules should return Not Set' {
-		$Unconfigured = Get-CDASRRules | Where-Object { $_.GUID -ne 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550' }
+		$Unconfigured = Get-CDASRRule | Where-Object { $_.GUID -ne 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550' }
 		$Unconfigured | ForEach-Object { $_.Action | Should -Be 'Not Set' }
 	}
 
@@ -172,7 +174,7 @@ Describe 'Get-CDASRRules' {
 				AttackSurfaceReductionRules_Actions = $null
 			}
 		}
-		Get-CDASRRules | ForEach-Object { $_.Action | Should -Be 'Not Set' }
+		Get-CDASRRule | ForEach-Object { $_.Action | Should -Be 'Not Set' }
 	}
 
 	It 'Should return Unknown for an unrecognised action value' {
@@ -182,12 +184,12 @@ Describe 'Get-CDASRRules' {
 				AttackSurfaceReductionRules_Actions = @(99)
 			}
 		}
-		$Rule = Get-CDASRRules | Where-Object { $_.GUID -eq 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550' }
+		$Rule = Get-CDASRRule | Where-Object { $_.GUID -eq 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550' }
 		$Rule.Action | Should -Be 'Unknown (99)'
 	}
 
 	It 'Description should match the known rule table entry' {
-		$Rule = Get-CDASRRules | Where-Object { $_.GUID -eq 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550' }
+		$Rule = Get-CDASRRule | Where-Object { $_.GUID -eq 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550' }
 		$Rule.Description | Should -Be 'Block executable content from email client and webmail'
 	}
 }
@@ -280,56 +282,56 @@ Describe 'Get-CDControlledFolderAccess' {
 }
 
 # ============================================================
-Describe 'Get-CDControlledFolders' {
+Describe 'Get-CDControlledFolder' {
 	BeforeAll {
 		Mock -ModuleName ConfigureDefender Get-MpPreference { return $Script:MpPref }
 	}
 
 	It 'Should return all protected folders' {
-		@(Get-CDControlledFolders).Count | Should -Be 2
+		@(Get-CDControlledFolder).Count | Should -Be 2
 	}
 
 	It 'Like filter should narrow results' {
-		$Result = Get-CDControlledFolders -Like 'Documents'
+		$Result = Get-CDControlledFolder -Like 'Documents'
 		@($Result).Count | Should -Be 1
 		$Result          | Should -Be 'C:\Users\Documents'
 	}
 
 	It 'Like filter with no match should return empty' {
-		@(Get-CDControlledFolders -Like 'NoMatch').Count | Should -Be 0
+		@(Get-CDControlledFolder -Like 'NoMatch').Count | Should -Be 0
 	}
 
 	It 'Should return empty when list is null' {
 		Mock -ModuleName ConfigureDefender Get-MpPreference {
 			return [PSCustomObject]@{ ControlledFolderAccessProtectedFolders = $null }
 		}
-		Get-CDControlledFolders | Should -BeNullOrEmpty
+		Get-CDControlledFolder | Should -BeNullOrEmpty
 	}
 }
 
 # ============================================================
-Describe 'Get-CDASRExclusions' {
+Describe 'Get-CDASRExclusion' {
 	BeforeAll {
 		Mock -ModuleName ConfigureDefender Get-MpPreference { return $Script:MpPref }
 	}
 
 	It 'Should return all exclusion paths' {
-		@(Get-CDASRExclusions).Count | Should -Be 2
+		@(Get-CDASRExclusion).Count | Should -Be 2
 	}
 
 	It 'Like filter should narrow results' {
-		$Result = Get-CDASRExclusions -Like 'MyApp'
+		$Result = Get-CDASRExclusion -Like 'MyApp'
 		@($Result).Count | Should -Be 1
 		$Result          | Should -Be 'C:\MyApp\'
 	}
 
 	It 'Like filter with no match should return empty' {
-		@(Get-CDASRExclusions -Like 'NoMatch').Count | Should -Be 0
+		@(Get-CDASRExclusion -Like 'NoMatch').Count | Should -Be 0
 	}
 }
 
 # ============================================================
-Describe 'Get-CDAllowedApplications' {
+Describe 'Get-CDAllowedApplication' {
 	BeforeAll {
 		Mock -ModuleName ConfigureDefender Get-MpPreference { return $Script:MpPref }
 		# notepad.exe exists; missing.exe does not
@@ -340,17 +342,17 @@ Describe 'Get-CDAllowedApplications' {
 	}
 
 	It 'Should return all allowed apps with no filter' {
-		@(Get-CDAllowedApplications).Count | Should -Be 2
+		@(Get-CDAllowedApplication).Count | Should -Be 2
 	}
 
 	It 'Like filter should narrow results' {
-		$Result = Get-CDAllowedApplications -Like 'notepad'
+		$Result = Get-CDAllowedApplication -Like 'notepad'
 		@($Result).Count | Should -Be 1
 		$Result          | Should -Be 'C:\Windows\notepad.exe'
 	}
 
 	It 'CheckMissing should return only paths that do not exist on disk' {
-		$Result = Get-CDAllowedApplications -CheckMissing
+		$Result = Get-CDAllowedApplication -CheckMissing
 		@($Result).Count | Should -Be 1
 		$Result          | Should -Be 'C:\fake\missing.exe'
 	}
@@ -545,8 +547,8 @@ Describe 'Set-CDAllowedApplication' {
 
 # ============================================================
 Describe 'Parameter Validation' {
-	It 'Get-CDEvents -Filter only accepts All, ASR, CFA' {
-		{ Get-CDEvents -Filter 'Invalid' } | Should -Throw
+	It 'Get-CDEvent -Filter only accepts All, ASR, CFA' {
+		{ Get-CDEvent -Filter 'Invalid' } | Should -Throw
 	}
 
 	It 'Set-CDASRRule -Action only accepts Disabled, Audit, Blocked, Warn' {
@@ -554,7 +556,7 @@ Describe 'Parameter Validation' {
 			Should -Throw
 	}
 
-	It 'Get-CDAllowedApplications Like and CheckMissing are mutually exclusive parameter sets' {
-		{ Get-CDAllowedApplications -Like 'foo' -CheckMissing } | Should -Throw
+	It 'Get-CDAllowedApplication Like and CheckMissing are mutually exclusive parameter sets' {
+		{ Get-CDAllowedApplication -Like 'foo' -CheckMissing } | Should -Throw
 	}
 }

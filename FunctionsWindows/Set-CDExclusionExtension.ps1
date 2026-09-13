@@ -18,6 +18,8 @@ Function Set-CDExclusionExtension
 		.PARAMETER Remove
 		Remove the extension from the exclusion list.
 	#>
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'Set-CDExclusionExtension writes a file-extension exclusion - state change is the explicit purpose of this function.')]
 	[CmdletBinding(DefaultParameterSetName = 'Add')]
 	param
 	(

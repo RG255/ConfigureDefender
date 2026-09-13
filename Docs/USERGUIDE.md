@@ -31,14 +31,14 @@ The module splits functions into two categories based on elevation requirements:
 GUI Process (non-elevated)                  Elevated NamedPipe Server
 ==========================                  =========================
 
-Get-CDASRRules          ------direct------> Get-MpPreference (no elevation needed)
+Get-CDASRRule          ------direct------> Get-MpPreference (no elevation needed)
 Get-CDNetworkProtection ------direct------> Get-MpPreference
 Get-CDControlledFolderAccess -direct------> Get-MpPreference
-Get-CDControlledFolders ------direct------> Get-MpPreference
-Get-CDEvents            ------direct------> Get-WinEvent
+Get-CDControlledFolder ------direct------> Get-MpPreference
+Get-CDEvent            ------direct------> Get-WinEvent
 
-Get-CDASRExclusions     ----via pipe------> Get-MpPreference  [admin]
-Get-CDAllowedApplications ---via pipe------> Get-MpPreference  [admin]
+Get-CDASRExclusion     ----via pipe------> Get-MpPreference  [admin]
+Get-CDAllowedApplication ---via pipe------> Get-MpPreference  [admin]
 
 Set-CDASRRule           ----via pipe------> Add/Remove-MpPreference  [admin]
 Set-CDASRExclusion      ----via pipe------> Add/Remove-MpPreference  [admin]
@@ -55,10 +55,10 @@ lifetime of the GUI session. The GUI calls `Open-CDPipeSession` to start it and
 ## Quick Start
 
 ```powershell
-Import-Module ConfigureDefender -RequiredVersion 0.3
+Import-Module ConfigureDefender -RequiredVersion 0.4
 
 # Read ASR rule states (no elevation)
-Get-CDASRRules
+Get-CDASRRule
 
 # Read Network Protection state (no elevation)
 Get-CDNetworkProtection
@@ -67,7 +67,7 @@ Get-CDNetworkProtection
 Open-CDPipeSession
 
 # Send an admin command through the pipe
-$SRP = Get-CDSendRequestParams
+$SRP = Get-CDSendRequestParam
 $SRP.'DataObject' = 'Set-CDNetworkProtection -Enable' | Send-Request @SRP -NoExitOnError
 $SRP.'DataObject'.Result
 $SRP.'DataObject'.Error
@@ -109,7 +109,7 @@ Close-CDPipeSession
 # Ensure session is open
 Open-CDPipeSession
 
-$SRP = Get-CDSendRequestParams
+$SRP = Get-CDSendRequestParam
 
 # Run any exported function on the elevated server
 $SRP.'DataObject' = 'Set-CDASRRule -GUID "be9ba2d9-53ea-4cdc-84e5-9b1eeee46550" -Action Blocked' |
@@ -128,12 +128,12 @@ else
 
 ## Function Reference
 
-### Get-CDASRRules
+### Get-CDASRRule
 
 Returns all 16 known ASR rules with their current states. No elevation required.
 
 ```powershell
-Get-CDASRRules
+Get-CDASRRule
 ```
 
 **Output:** `PSCustomObject[]` with properties:
@@ -147,10 +147,10 @@ Get-CDASRRules
 **Example:**
 ```powershell
 # Show only enabled/blocked rules
-Get-CDASRRules | Where-Object { $_.Action -in 'Blocked', 'Audit' } | Format-Table
+Get-CDASRRule | Where-Object { $_.Action -in 'Blocked', 'Audit' } | Format-Table
 
 # Show all not-yet-configured rules
-Get-CDASRRules | Where-Object { $_.Action -eq 'Not Set' }
+Get-CDASRRule | Where-Object { $_.Action -eq 'Not Set' }
 ```
 
 ---
@@ -190,31 +190,31 @@ Get-CDControlledFolderAccess
 
 ---
 
-### Get-CDControlledFolders
+### Get-CDControlledFolder
 
 Returns the list of Controlled Folder Access protected folders. No elevation required.
 
 ```powershell
-Get-CDControlledFolders
-Get-CDControlledFolders -Like 'Documents'   # wildcard filter
+Get-CDControlledFolder
+Get-CDControlledFolder -Like 'Documents'   # wildcard filter
 ```
 
 **Output:** `String[]` of folder paths.
 
 ---
 
-### Get-CDEvents
+### Get-CDEvent
 
 Returns Defender **and Smart App Control (SAC)** events from the Windows event log. No elevation
 required (both logs grant read to interactive users).
 
 ```powershell
-Get-CDEvents                                # all events since last boot
-Get-CDEvents -Filter ASR                    # ASR events only (1121 block / 1122 audit)
-Get-CDEvents -Filter CFA                    # CFA events only (1123/1124/1127/1128)
-Get-CDEvents -Filter SAC                    # Smart App Control events only
-Get-CDEvents -Since (Get-Date).AddDays(-7) # last 7 days
-Get-CDEvents -Like 'powershell'            # filter by process name
+Get-CDEvent                                # all events since last boot
+Get-CDEvent -Filter ASR                    # ASR events only (1121 block / 1122 audit)
+Get-CDEvent -Filter CFA                    # CFA events only (1123/1124/1127/1128)
+Get-CDEvent -Filter SAC                    # Smart App Control events only
+Get-CDEvent -Since (Get-Date).AddDays(-7) # last 7 days
+Get-CDEvent -Like 'powershell'            # filter by process name
 ```
 
 **Parameters:**
@@ -284,33 +284,33 @@ pass on merit).
 
 ---
 
-### Get-CDASRExclusions [admin]
+### Get-CDASRExclusion [admin]
 
 Returns the list of paths excluded from all ASR rules. Intended to run on the elevated
 server via pipe.
 
 ```powershell
 # From GUI (via pipe):
-'Get-CDASRExclusions' | Send-Request @SRP -NoExitOnError
+'Get-CDASRExclusion' | Send-Request @SRP -NoExitOnError
 
 # Direct (only works if already elevated):
-Get-CDASRExclusions
-Get-CDASRExclusions -Like 'MyApp'
+Get-CDASRExclusion
+Get-CDASRExclusion -Like 'MyApp'
 ```
 
 **Output:** `String[]` of exclusion paths.
 
 ---
 
-### Get-CDAllowedApplications [admin]
+### Get-CDAllowedApplication [admin]
 
 Returns the list of applications allowed to access Controlled Folders. Intended to run on
 the elevated server via pipe.
 
 ```powershell
 # Via pipe from GUI:
-'Get-CDAllowedApplications' | Send-Request @SRP -NoExitOnError
-'Get-CDAllowedApplications -CheckMissing' | Send-Request @SRP -NoExitOnError
+'Get-CDAllowedApplication' | Send-Request @SRP -NoExitOnError
+'Get-CDAllowedApplication -CheckMissing' | Send-Request @SRP -NoExitOnError
 ```
 
 **Parameters:**
@@ -421,7 +421,7 @@ Set-CDNetworkProtection -Disable  # value 0
 
 Enables or disables the `Microsoft-Windows-CodeIntegrity/Verbose` channel - where Smart App Control
 records **allow** decisions (event 3075). Runs on the elevated pipe server; reading the captured allows
-afterwards (`Get-CDEvents -Filter SAC-Allow`) needs no elevation.
+afterwards (`Get-CDEvent -Filter SAC-Allow`) needs no elevation.
 
 ```powershell
 Set-CDCIVerbose                       # enable (widen to 128 MB, register the watchdog)
@@ -442,7 +442,7 @@ Events tab **Log** toggle calls this; you rarely need it directly.
 
 ### ASRRules (16 entries)
 
-Ordered hashtable mapping GUID -> description. Used internally by `Get-CDASRRules` and
+Ordered hashtable mapping GUID -> description. Used internally by `Get-CDASRRule` and
 `Set-CDASRRule -AddAll`. All GUIDs are lowercase.
 
 ```powershell
@@ -691,65 +691,65 @@ either redundant, read-only in practice, or applicable only to specific scenario
 
 ---
 
-### Get-CDExclusionProcesses [admin]
+### Get-CDExclusionProcess [admin]
 
 Returns the list of processes excluded from Defender scanning. Intended to run on the elevated server via pipe.
 
 ```powershell
-Get-CDExclusionProcesses
-Get-CDExclusionProcesses -Like 'myapp'
+Get-CDExclusionProcess
+Get-CDExclusionProcess -Like 'myapp'
 ```
 
 **Output:** `String[]` of process names or paths.
 
 ---
 
-### Get-CDExclusionPaths [admin]
+### Get-CDExclusionPath [admin]
 
 Returns the list of file/folder paths excluded from Defender scanning.
 
 ```powershell
-Get-CDExclusionPaths
-Get-CDExclusionPaths -Like 'C:\MyApp'
+Get-CDExclusionPath
+Get-CDExclusionPath -Like 'C:\MyApp'
 ```
 
 **Output:** `String[]` of excluded paths.
 
 ---
 
-### Get-CDExclusionExtensions [admin]
+### Get-CDExclusionExtension [admin]
 
 Returns the list of file extensions excluded from Defender scanning.
 
 ```powershell
-Get-CDExclusionExtensions
-Get-CDExclusionExtensions -Like 'log'
+Get-CDExclusionExtension
+Get-CDExclusionExtension -Like 'log'
 ```
 
 **Output:** `String[]` of excluded extensions (e.g. `.log`, `.tmp`).
 
 ---
 
-### Get-CDExclusionIpAddresses [admin]
+### Get-CDExclusionIpAddress [admin]
 
 Returns the list of IP addresses excluded from Network Protection.
 
 ```powershell
-Get-CDExclusionIpAddresses
-Get-CDExclusionIpAddresses -Like '192.168'
+Get-CDExclusionIpAddress
+Get-CDExclusionIpAddress -Like '192.168'
 ```
 
 **Output:** `String[]` of excluded IP addresses.
 
 ---
 
-### Get-CDSettings
+### Get-CDSetting
 
 Returns all configurable Defender settings as structured objects for display and editing. No elevation required for reading.
 
 ```powershell
-Get-CDSettings
-Get-CDSettings | Where-Object Type -eq 'Bool' | Format-Table Name, FriendlyName, Value
+Get-CDSetting
+Get-CDSetting | Where-Object Type -eq 'Bool' | Format-Table Name, FriendlyName, Value
 ```
 
 **Output:** `PSCustomObject[]` with properties:
@@ -768,12 +768,12 @@ Covers scanning, protection, cloud/MAPS, performance, network, and UI settings.
 
 ---
 
-### Get-CDThreatActions
+### Get-CDThreatAction
 
 Returns the default remediation action for each threat severity level. No elevation required.
 
 ```powershell
-Get-CDThreatActions
+Get-CDThreatAction
 ```
 
 **Output:** `PSCustomObject[]` with Level, Property, Value (int), Action (string) for Severe, High, Moderate, Low, Unknown.
@@ -782,12 +782,12 @@ Valid Action strings: `Clean`, `Quarantine`, `Remove`, `Allow`, `UserDefined`, `
 
 ---
 
-### Get-CDSendRequestParams
+### Get-CDSendRequestParam
 
 Returns the `SendRequestParams` hashtable for the current elevated session, or `$null` if no session has been opened. Use this instead of `$Mod.Invoke({ $script:CDSendRequestParams })`.
 
 ```powershell
-$SRP = Get-CDSendRequestParams
+$SRP = Get-CDSendRequestParam
 ```
 
 ---
@@ -846,7 +846,7 @@ Set-CDSetting -Name 'CloudBlockLevel'           -Value 2
 Set-CDSetting -Name 'CloudExtendedTimeout'      -Value 10
 ```
 
-Use `Get-CDSettings` to discover valid property names and their types.
+Use `Get-CDSetting` to discover valid property names and their types.
 
 ---
 
@@ -896,9 +896,9 @@ a dropped session transparently.
 
 ### "Module not found" in elevated server
 Ensure ConfigureDefender is deployed to a path in `$env:PSModulePath` (e.g.
-`C:\Program Files\WindowsPowerShell\Modules\ConfigureDefender\0.3\`).
+`C:\Program Files\WindowsPowerShell\Modules\ConfigureDefender\0.4\`).
 
-### Get-CDEvents returns nothing (or the Events tab / SAC filter is empty)
+### Get-CDEvent returns nothing (or the Events tab / SAC filter is empty)
 The event log query defaults to events since the last boot. Use `-Since` with an earlier
 date or ensure Defender events are enabled in the local Group Policy. This bites the **SAC**
 filter especially: SAC blocks only fire when a blocked app is launched, not on every boot, so

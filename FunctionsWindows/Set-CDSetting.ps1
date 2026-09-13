@@ -17,6 +17,8 @@ Function Set-CDSetting
 		The value to set. Pass $true/$false for Bool settings, an integer for Enum
 		or Int settings.
 	#>
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'Set-CDSetting writes a single Defender preference - state change is the explicit purpose of this function.')]
 	[CmdletBinding()]
 	param
 	(
@@ -38,5 +40,6 @@ Function Set-CDSetting
 	}
 	catch
 	{
+		Write-MyCatchAudit -Source 'Set-CDSetting: audit EventLog write' -ErrorRecord $_
 	}
 }

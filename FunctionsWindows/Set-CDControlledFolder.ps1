@@ -17,6 +17,8 @@ Function Set-CDControlledFolder
 		.PARAMETER Remove
 		Remove the folder from the protected list.
 	#>
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'Set-CDControlledFolder writes a Controlled Folder Access folder entry - state change is the explicit purpose of this function.')]
 	[CmdletBinding(DefaultParameterSetName = 'Add')]
 	param
 	(

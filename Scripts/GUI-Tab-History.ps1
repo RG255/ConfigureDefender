@@ -155,84 +155,84 @@ $script:HistLoaded = $false
 
 #region Refresh handler
 $TsBtnHistRefresh.Add_Click({
-	$StatusLabel.Text   = 'Loading...'
-	$Form.UseWaitCursor = $true
-	[System.Windows.Forms.Application]::DoEvents()
-	try
-	{
-		$Since  = Get-HistSinceDate
-		$Filter = $TsCbHistFilter.SelectedItem.ToString()
-		$Params = @{ Filter = $Filter }
-		if ($Since) { $Params.Since = $Since }
-
-		$Rows = @(Get-CDThreatDetections @Params)
-
-		$LvHist.BeginUpdate()
-		$LvHist.Items.Clear()
-		$LvHistRes.Items.Clear()
-
-		foreach ($D in $Rows)
+		$StatusLabel.Text   = 'Loading...'
+		$Form.UseWaitCursor = $true
+		[System.Windows.Forms.Application]::DoEvents()
+		try
 		{
-			$DetStr  = if ($D.Detected) { $D.Detected.ToString('yyyy-MM-dd HH:mm') } else { '' }
-			$ProcStr = if ($D.ProcessName) { Split-Path $D.ProcessName -Leaf } else { '' }
+			$Since  = Get-HistSinceDate
+			$Filter = $TsCbHistFilter.SelectedItem.ToString()
+			$Params = @{ Filter = $Filter }
+			if ($Since) { $Params.Since = $Since }
 
-			$Li = New-Object System.Windows.Forms.ListViewItem($DetStr)
-			$Li.SubItems.Add([string]$D.ThreatName) | Out-Null
-			$Li.SubItems.Add([string]$D.Severity)   | Out-Null
-			$Li.SubItems.Add([string]$D.Status)     | Out-Null
-			$Li.SubItems.Add([string]$D.Action)     | Out-Null
-			$Li.SubItems.Add([string]$D.Source)     | Out-Null
-			$Li.SubItems.Add($(if ($D.User) { [string]$D.User } else { 'Unknown' })) | Out-Null
-			$Li.SubItems.Add($ProcStr)              | Out-Null
-			$Li.ForeColor = Get-HistItemColor -Status $D.Status -ActionSuccess $D.ActionSuccess -IsActive $D.IsActive
-			$Li.Tag       = $D
-			$LvHist.Items.Add($Li) | Out-Null
+			$Rows = @(Get-CDThreatDetection @Params)
+
+			$LvHist.BeginUpdate()
+			$LvHist.Items.Clear()
+			$LvHistRes.Items.Clear()
+
+			foreach ($D in $Rows)
+			{
+				$DetStr  = if ($D.Detected) { $D.Detected.ToString('yyyy-MM-dd HH:mm') } else { '' }
+				$ProcStr = if ($D.ProcessName) { Split-Path $D.ProcessName -Leaf } else { '' }
+
+				$Li = New-Object System.Windows.Forms.ListViewItem($DetStr)
+				$Li.SubItems.Add([string]$D.ThreatName) | Out-Null
+				$Li.SubItems.Add([string]$D.Severity)   | Out-Null
+				$Li.SubItems.Add([string]$D.Status)     | Out-Null
+				$Li.SubItems.Add([string]$D.Action)     | Out-Null
+				$Li.SubItems.Add([string]$D.Source)     | Out-Null
+				$Li.SubItems.Add($(if ($D.User) { [string]$D.User } else { 'Unknown' })) | Out-Null
+				$Li.SubItems.Add($ProcStr)              | Out-Null
+				$Li.ForeColor = Get-HistItemColor -Status $D.Status -ActionSuccess $D.ActionSuccess -IsActive $D.IsActive
+				$Li.Tag       = $D
+				$LvHist.Items.Add($Li) | Out-Null
+			}
+
+			$LvHist.EndUpdate()
+			Add-EmptyPlaceholder $LvHist 'No detections found'
+			$script:HistLoaded = $true
+			$StatusLabel.Text  = "History: $($Rows.Count) detection(s)"
 		}
-
-		$LvHist.EndUpdate()
-		Add-EmptyPlaceholder $LvHist 'No detections found'
-		$script:HistLoaded = $true
-		$StatusLabel.Text  = "History: $($Rows.Count) detection(s)"
-	}
-	catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-	finally
-	{
-		$Form.UseWaitCursor = $false
-		[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
-	}
-})
+		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
+		finally
+		{
+			$Form.UseWaitCursor = $false
+			[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
+		}
+	})
 #endregion
 
 #region Resources toggle
 $TsBtnHistRes.Add_Click({
-	if ($ScHist.Panel2Collapsed)
-	{
-		$ScHist.Panel2Collapsed = $false
-		$TsBtnHistRes.Text      = 'Resources [-]'
-	}
-	else
-	{
-		$ScHist.Panel2Collapsed = $true
-		$TsBtnHistRes.Text      = 'Resources [+]'
-	}
-})
+		if ($ScHist.Panel2Collapsed)
+		{
+			$ScHist.Panel2Collapsed = $false
+			$TsBtnHistRes.Text      = 'Resources [-]'
+		}
+		else
+		{
+			$ScHist.Panel2Collapsed = $true
+			$TsBtnHistRes.Text      = 'Resources [+]'
+		}
+	})
 #endregion
 
 #region Selection change - populate Resources panel
 $LvHist.Add_SelectedIndexChanged({
-	$LvHistRes.Items.Clear()
-	if ($LvHist.SelectedItems.Count -eq 0) { return }
-	$Li = $LvHist.SelectedItems[0]
-	if (-not $Li.Tag -or $Li.Tag -eq '$placeholder') { return }
-	$D = $Li.Tag
-	foreach ($R in $D.Resources)
-	{
-		$Row  = ConvertTo-HistResourceRow $R
-		$RLi  = New-Object System.Windows.Forms.ListViewItem($Row.Type)
-		$RLi.SubItems.Add($Row.Path) | Out-Null
-		$LvHistRes.Items.Add($RLi) | Out-Null
-	}
-})
+		$LvHistRes.Items.Clear()
+		if ($LvHist.SelectedItems.Count -eq 0) { return }
+		$Li = $LvHist.SelectedItems[0]
+		if (-not $Li.Tag -or $Li.Tag -eq '$placeholder') { return }
+		$D = $Li.Tag
+		foreach ($R in $D.Resources)
+		{
+			$Row  = ConvertTo-HistResourceRow $R
+			$RLi  = New-Object System.Windows.Forms.ListViewItem($Row.Type)
+			$RLi.SubItems.Add($Row.Path) | Out-Null
+			$LvHistRes.Items.Add($RLi) | Out-Null
+		}
+	})
 #endregion
 
 #region Filter/Since combo - auto-refresh when already loaded

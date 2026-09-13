@@ -20,6 +20,8 @@ Function Set-CDAllowedApplication
 		.PARAMETER RemoveMissing
 		Scans the allowed list and removes any entries whose path no longer exists on disk.
 	#>
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'Set-CDAllowedApplication writes a single allowed-application entry - state change is the explicit purpose of this function.')]
 	[CmdletBinding(DefaultParameterSetName = 'Add')]
 	param
 	(

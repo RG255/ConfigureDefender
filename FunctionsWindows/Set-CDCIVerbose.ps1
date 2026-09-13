@@ -55,8 +55,8 @@ Function Set-CDCIVerbose
 		$Log.IsEnabled = $false
 		$Log.SaveChanges()
 		# Best-effort: restore the default cap / mode while disabled (separate saves).
-		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.MaximumSizeInBytes = $DefaultBytes; $C.SaveChanges() } catch { $null = $_ }
-		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Retain; $C.SaveChanges() } catch { $null = $_ }
+		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.MaximumSizeInBytes = $DefaultBytes; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (-Disable): restore default MaximumSizeInBytes' -ErrorRecord $_ }
+		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Retain; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (-Disable): restore default LogMode' -ErrorRecord $_ }
 		Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 	}
 	else
@@ -65,8 +65,8 @@ Function Set-CDCIVerbose
 		# manifest LogMode = Retain and rejects Circular, so it STOPS when full - hence the large cap).
 		# Circular is still attempted in case a future build allows it. Separate saves, each on its own;
 		# a rejected size/mode change just leaves the 1 MB default and logging still works.
-		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.MaximumSizeInBytes = 134217728; $C.SaveChanges() } catch { $null = $_ }
-		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Circular; $C.SaveChanges() } catch { $null = $_ }
+		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.MaximumSizeInBytes = 134217728; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): widen MaximumSizeInBytes to 128MB' -ErrorRecord $_ }
+		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Circular; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): set LogMode Circular' -ErrorRecord $_ }
 
 		# Critical: enable the channel (its own SaveChanges).
 		$On = Get-WinEvent -ListLog $Channel -ErrorAction Stop

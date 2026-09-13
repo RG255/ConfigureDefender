@@ -1,9 +1,9 @@
 ﻿#requires -Version 5.0
-Function Get-CDExclusionIpAddresses
+Function Get-CDExclusionExtension
 {
 	<#
 		.SYNOPSIS
-		Returns Defender IP address exclusions.
+		Returns Defender file extension exclusions.
 
 		.PARAMETER Like
 		Optional wildcard filter applied to the returned list.
@@ -11,7 +11,7 @@ Function Get-CDExclusionIpAddresses
 	[CmdletBinding()]
 	param([string]$Like)
 
-	$List = (Get-MpPreference).ExclusionIpAddress
+	$List = (Get-MpPreference).ExclusionExtension
 	if ($Like) { $List = $List | Where-Object { $_ -ilike "*$Like*" } }
 	$List
 }

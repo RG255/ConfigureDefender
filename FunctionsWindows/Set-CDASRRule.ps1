@@ -29,6 +29,8 @@ Function Set-CDASRRule
 		Set-CDASRRule -RemoveGUID 'be9ba2d9-...'
 		Set-CDASRRule -RemoveAll
 	#>
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'Set-CDASRRule writes an ASR rule action - state change is the explicit purpose of this function.')]
 	[CmdletBinding(DefaultParameterSetName = 'Change')]
 	param
 	(

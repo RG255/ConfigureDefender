@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.0
-Function Get-CDThreatDetections
+Function Get-CDThreatDetection
 {
 	<#
 		.SYNOPSIS

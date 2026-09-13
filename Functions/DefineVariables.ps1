@@ -1,6 +1,6 @@
 ﻿#requires -Version 5.0
 #
-# Bootstrap variables required by the Publish-Variables mechanism
+# Bootstrap variables required by the Publish-Variable mechanism
 # Must be processed first so subsequent calls can use $VSScript / $VOReadOnly etc.
 #
 $MyVars = [Ordered]@{
@@ -12,7 +12,7 @@ $MyVars = [Ordered]@{
 		}
 	}
 }
-Publish-Variables -Variables $MyVars
+Publish-Variable -Variables $MyVars
 
 $MyVars = [Ordered]@{
 	N01BootstrapVars = @{
@@ -48,7 +48,7 @@ $MyVars = [Ordered]@{
 		}
 	}
 }
-Publish-Variables -Variables $MyVars
+Publish-Variable -Variables $MyVars
 
 #
 # Function export table - controls which functions are exported from the module.
@@ -56,20 +56,20 @@ Publish-Variables -Variables $MyVars
 #
 $script:FunctionExportTable = @{
 	# Read functions - can run non-elevated or via pipe
-	'Get-CDASRRules'               = $true
-	'Get-CDEvents'                 = $true
-	'Get-CDControlledFolders'      = $true
+	'Get-CDASRRule'               = $true
+	'Get-CDEvent'                 = $true
+	'Get-CDControlledFolder'      = $true
 	'Get-CDNetworkProtection'      = $true
 	'Get-CDControlledFolderAccess' = $true
-	'Get-CDASRExclusions'          = $true
-	'Get-CDExclusionProcesses'     = $true
-	'Get-CDExclusionPaths'         = $true
-	'Get-CDExclusionExtensions'    = $true
-	'Get-CDExclusionIpAddresses'   = $true
-	'Get-CDAllowedApplications'    = $true
-	'Get-CDSettings'               = $true
-	'Get-CDThreatActions'          = $true
-	'Get-CDThreatDetections'       = $true
+	'Get-CDASRExclusion'          = $true
+	'Get-CDExclusionProcess'     = $true
+	'Get-CDExclusionPath'         = $true
+	'Get-CDExclusionExtension'    = $true
+	'Get-CDExclusionIpAddress'   = $true
+	'Get-CDAllowedApplication'    = $true
+	'Get-CDSetting'               = $true
+	'Get-CDThreatAction'          = $true
+	'Get-CDThreatDetection'       = $true
 	# Write functions - must run elevated via NamedPipe
 	'Set-CDASRRule'                = $true
 	'Set-CDASRExclusion'           = $true
@@ -87,10 +87,23 @@ $script:FunctionExportTable = @{
 	# Pipe session management - GUI process only
 	'Open-CDPipeSession'           = $true
 	'Close-CDPipeSession'          = $true
-	'Get-CDSendRequestParams'      = $true
+	'Get-CDSendRequestParam'      = $true
 	'Test-CDPipeSession'           = $true
 	# GUI launcher
 	'Start-ConfigureDefenderGUI'   = $true
+	# Vendored catch-audit utilities (2026-09-07, see Modules\Shared-Usage.psd1) - Write-MyCatchAudit
+	# is called only from inside a Catch block, never by a user, so it must be explicit here: this
+	# table's own default for an UNLISTED name is $true (exported) - the opposite of a flat
+	# FunctionsToExport list, where omission means hidden. Enable/Disable-MyCatchAudit,
+	# Get-MyCatchAuditLog, Show-MyCatchAuditSummary, Clear-MyCatchAuditLog, and
+	# Invoke-MyCatchAuditTriage are genuinely meant to be typed at the console, so they are left OUT
+	# of this table (their default of $true is exactly what is wanted) but are still listed explicitly
+	# in the manifest's FunctionsToExport for discoverability. Get-MyCatchAuditPersistPath (pure
+	# internal plumbing) and Show-MyCatchAuditPendingNotice (called automatically from this module's
+	# own init, 2026-09-10) need the same explicit-false treatment as Write-MyCatchAudit above.
+	'Write-MyCatchAudit'              = $false
+	'Get-MyCatchAuditPersistPath'     = $false
+	'Show-MyCatchAuditPendingNotice'  = $false
 }
 
 #

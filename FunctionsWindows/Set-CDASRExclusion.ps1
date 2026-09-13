@@ -18,6 +18,8 @@ Function Set-CDASRExclusion
 		.PARAMETER Remove
 		Remove the path from the ASR exclusion list.
 	#>
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'Set-CDASRExclusion writes an ASR exclusion - state change is the explicit purpose of this function.')]
 	[CmdletBinding(DefaultParameterSetName = 'Add')]
 	param
 	(

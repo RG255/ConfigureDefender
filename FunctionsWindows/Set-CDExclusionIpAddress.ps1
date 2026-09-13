@@ -18,6 +18,8 @@ Function Set-CDExclusionIpAddress
 		.PARAMETER Remove
 		Remove the IP address from the exclusion list.
 	#>
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'Set-CDExclusionIpAddress writes an IP-address exclusion - state change is the explicit purpose of this function.')]
 	[CmdletBinding(DefaultParameterSetName = 'Add')]
 	param
 	(

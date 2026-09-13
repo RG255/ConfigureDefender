@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.0
-Function Get-CDSettings
+Function Get-CDSetting
 {
 	<#
 		.SYNOPSIS
@@ -16,6 +16,7 @@ Function Get-CDSettings
 		  Description - Tooltip/help text
 	#>
 	[CmdletBinding()]
+	[OutputType([PSCustomObject[]])]
 	param()
 
 	$Pref = Get-MpPreference

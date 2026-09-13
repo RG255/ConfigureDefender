@@ -92,43 +92,43 @@ foreach ($ActionName in @('Disabled', 'Audit', 'Blocked', 'Warn'))
 $LvASR.ContextMenuStrip = $CtxASR
 
 $LvASR.Add_SizeChanged({
-	$w = $LvASR.ClientSize.Width - 80 - 280 - 22
-	if ($w -gt 100) { $LvASR.Columns[2].Width = $w }
-})
+		$w = $LvASR.ClientSize.Width - 80 - 280 - 22
+		if ($w -gt 100) { $LvASR.Columns[2].Width = $w }
+	})
 
 $LvASR.Add_KeyDown({
-	if ($_.Control -and $_.KeyCode -eq 'A')
-	{ $LvASR.Items | ForEach-Object { $_.Selected = $true } }
-})
+		if ($_.Control -and $_.KeyCode -eq 'A')
+		{ $LvASR.Items | ForEach-Object { $_.Selected = $true } }
+	})
 
 $TabASR.Controls.Add($LvASR)
 $TabASR.Controls.Add($ToolStripASR)
 
 $TsBtnRefresh.Add_Click({
-	$StatusLabel.Text = 'Loading...'
-	$Form.UseWaitCursor = $true
-	[System.Windows.Forms.Application]::DoEvents()
-	$LvASR.Items.Clear()
-	try
-	{
-		$Rules = Get-CDASRRules
-		foreach ($Rule in $Rules)
+		$StatusLabel.Text = 'Loading...'
+		$Form.UseWaitCursor = $true
+		[System.Windows.Forms.Application]::DoEvents()
+		$LvASR.Items.Clear()
+		try
 		{
-			$Li = New-Object System.Windows.Forms.ListViewItem($Rule.Action)
-			$Li.SubItems.Add($Rule.GUID)        | Out-Null
-			$Li.SubItems.Add($Rule.Description) | Out-Null
-			$Li.Tag       = $Rule.GUID
-			$Li.ForeColor = Get-ASRItemColor $Rule.Action
-			$LvASR.Items.Add($Li) | Out-Null
+			$Rules = Get-CDASRRule
+			foreach ($Rule in $Rules)
+			{
+				$Li = New-Object System.Windows.Forms.ListViewItem($Rule.Action)
+				$Li.SubItems.Add($Rule.GUID)        | Out-Null
+				$Li.SubItems.Add($Rule.Description) | Out-Null
+				$Li.Tag       = $Rule.GUID
+				$Li.ForeColor = Get-ASRItemColor $Rule.Action
+				$LvASR.Items.Add($Li) | Out-Null
+			}
+			Add-EmptyPlaceholder $LvASR
+			$StatusLabel.Text = "ASR Rules loaded ($($Rules.Count) rules)."
 		}
-		Add-EmptyPlaceholder $LvASR
-		$StatusLabel.Text = "ASR Rules loaded ($($Rules.Count) rules)."
-	}
-	catch { $StatusLabel.Text = 'Error loading ASR Rules: ' + $_.Exception.Message }
-	finally
-	{
-		$Form.UseWaitCursor = $false
-		[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
-	}
-})
+		catch { $StatusLabel.Text = 'Error loading ASR Rules: ' + $_.Exception.Message }
+		finally
+		{
+			$Form.UseWaitCursor = $false
+			[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
+		}
+	})
 #endregion

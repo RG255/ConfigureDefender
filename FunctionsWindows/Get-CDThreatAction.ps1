@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.0
-Function Get-CDThreatActions
+Function Get-CDThreatAction
 {
 	<#
 		.SYNOPSIS
@@ -10,6 +10,7 @@ Function Get-CDThreatActions
 		Action (string label) for each of the five threat severity levels.
 	#>
 	[CmdletBinding()]
+	[OutputType([PSCustomObject[]])]
 	param()
 
 	$Pref = Get-MpPreference

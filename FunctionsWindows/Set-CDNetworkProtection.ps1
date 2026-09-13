@@ -18,6 +18,8 @@ Function Set-CDNetworkProtection
 		.PARAMETER Disable
 		Disable Network Protection (value 0).
 	#>
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'Set-CDNetworkProtection toggles the Network Protection feature state - state change is the explicit purpose of this function.')]
 	[CmdletBinding(DefaultParameterSetName = 'Enable')]
 	param
 	(

@@ -91,9 +91,9 @@ $LvExclASR.MultiSelect   = $true
 $LvExclASR.Visible       = $false
 $LvExclASR.Columns.Add('ASR Exclusion', 800) | Out-Null
 $LvExclASR.Add_SizeChanged({
-	$w = $LvExclASR.ClientSize.Width - 22
-	if ($w -gt 100) { $LvExclASR.Columns[0].Width = $w }
-})
+		$w = $LvExclASR.ClientSize.Width - 22
+		if ($w -gt 100) { $LvExclASR.Columns[0].Width = $w }
+	})
 $PanelExcl.Controls.Add($LvExclASR)
 
 $LvProc               = New-Object System.Windows.Forms.ListView
@@ -105,9 +105,9 @@ $LvProc.MultiSelect   = $true
 $LvProc.Visible       = $false
 $LvProc.Columns.Add('Process', 800) | Out-Null
 $LvProc.Add_SizeChanged({
-	$w = $LvProc.ClientSize.Width - 22
-	if ($w -gt 100) { $LvProc.Columns[0].Width = $w }
-})
+		$w = $LvProc.ClientSize.Width - 22
+		if ($w -gt 100) { $LvProc.Columns[0].Width = $w }
+	})
 $PanelExcl.Controls.Add($LvProc)
 
 $LvPath               = New-Object System.Windows.Forms.ListView
@@ -119,9 +119,9 @@ $LvPath.MultiSelect   = $true
 $LvPath.Visible       = $false
 $LvPath.Columns.Add('Path', 800) | Out-Null
 $LvPath.Add_SizeChanged({
-	$w = $LvPath.ClientSize.Width - 22
-	if ($w -gt 100) { $LvPath.Columns[0].Width = $w }
-})
+		$w = $LvPath.ClientSize.Width - 22
+		if ($w -gt 100) { $LvPath.Columns[0].Width = $w }
+	})
 $PanelExcl.Controls.Add($LvPath)
 
 $LvExt               = New-Object System.Windows.Forms.ListView
@@ -133,9 +133,9 @@ $LvExt.MultiSelect   = $true
 $LvExt.Visible       = $false
 $LvExt.Columns.Add('Extension', 800) | Out-Null
 $LvExt.Add_SizeChanged({
-	$w = $LvExt.ClientSize.Width - 22
-	if ($w -gt 100) { $LvExt.Columns[0].Width = $w }
-})
+		$w = $LvExt.ClientSize.Width - 22
+		if ($w -gt 100) { $LvExt.Columns[0].Width = $w }
+	})
 $PanelExcl.Controls.Add($LvExt)
 
 $LvIP               = New-Object System.Windows.Forms.ListView
@@ -147,9 +147,9 @@ $LvIP.MultiSelect   = $true
 $LvIP.Visible       = $false
 $LvIP.Columns.Add('IP Address', 800) | Out-Null
 $LvIP.Add_SizeChanged({
-	$w = $LvIP.ClientSize.Width - 22
-	if ($w -gt 100) { $LvIP.Columns[0].Width = $w }
-})
+		$w = $LvIP.ClientSize.Width - 22
+		if ($w -gt 100) { $LvIP.Columns[0].Width = $w }
+	})
 $PanelExcl.Controls.Add($LvIP)
 
 $LblExclPrompt           = New-Object System.Windows.Forms.Label
@@ -202,6 +202,9 @@ function Show-ExclActionBar
 # --- Update / filter functions ---
 function Update-ExclASRView
 {
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'GUI helper that only refreshes an in-memory WinForms control''s displayed state; changes no system/Defender state.')]
+	Param ()
 	$LvExclASR.Items.Clear()
 	if ($null -eq $script:ASRExclCache) { Add-EmptyPlaceholder $LvExclASR '(nothing requested yet)'; return }
 	if (-not $script:ASRExclCache) { Add-EmptyPlaceholder $LvExclASR; return }
@@ -216,6 +219,9 @@ function Update-ExclASRView
 
 function Update-ExclProcView
 {
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'GUI helper that only refreshes an in-memory WinForms control''s displayed state; changes no system/Defender state.')]
+	Param ()
 	$LvProc.Items.Clear()
 	if ($null -eq $script:ExclProcCache) { Add-EmptyPlaceholder $LvProc '(nothing requested yet)'; return }
 	if (-not $script:ExclProcCache) { Add-EmptyPlaceholder $LvProc; return }
@@ -230,6 +236,9 @@ function Update-ExclProcView
 
 function Update-ExclPathView
 {
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'GUI helper that only refreshes an in-memory WinForms control''s displayed state; changes no system/Defender state.')]
+	Param ()
 	$LvPath.Items.Clear()
 	if ($null -eq $script:ExclPathCache) { Add-EmptyPlaceholder $LvPath '(nothing requested yet)'; return }
 	if (-not $script:ExclPathCache) { Add-EmptyPlaceholder $LvPath; return }
@@ -244,6 +253,9 @@ function Update-ExclPathView
 
 function Update-ExclExtView
 {
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'GUI helper that only refreshes an in-memory WinForms control''s displayed state; changes no system/Defender state.')]
+	Param ()
 	$LvExt.Items.Clear()
 	if ($null -eq $script:ExclExtCache) { Add-EmptyPlaceholder $LvExt '(nothing requested yet)'; return }
 	if (-not $script:ExclExtCache) { Add-EmptyPlaceholder $LvExt; return }
@@ -258,6 +270,9 @@ function Update-ExclExtView
 
 function Update-ExclIPView
 {
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'GUI helper that only refreshes an in-memory WinForms control''s displayed state; changes no system/Defender state.')]
+	Param ()
 	$LvIP.Items.Clear()
 	if ($null -eq $script:ExclIPCache) { Add-EmptyPlaceholder $LvIP '(nothing requested yet)'; return }
 	if (-not $script:ExclIPCache) { Add-EmptyPlaceholder $LvIP; return }
@@ -271,15 +286,15 @@ function Update-ExclIPView
 }
 
 $ExclFilterBox.Add_TextChanged({
-	switch ($script:ExclCategory)
-	{
-		'ASR'  { Update-ExclASRView }
-		'Proc' { Update-ExclProcView }
-		'Path' { Update-ExclPathView }
-		'Ext'  { Update-ExclExtView }
-		'IP'   { Update-ExclIPView }
-	}
-})
+		switch ($script:ExclCategory)
+		{
+			'ASR'  { Update-ExclASRView }
+			'Proc' { Update-ExclProcView }
+			'Path' { Update-ExclPathView }
+			'Ext'  { Update-ExclExtView }
+			'IP'   { Update-ExclIPView }
+		}
+	})
 
 # --- Refresh ---
 function Invoke-ExclRefresh
@@ -296,7 +311,7 @@ function Invoke-ExclRefresh
 			'ASR'  {
 				# AttackSurfaceReductionOnlyExclusions requires elevation
 				$SRP = Get-CDSRP
-				$SRP.DataObject = 'Get-CDASRExclusions' | Send-Request @SRP
+				$SRP.DataObject = 'Get-CDASRExclusion' | Send-Request @SRP
 				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
 				$script:ASRExclCache = @($SRP.DataObject.Result)
 				Update-ExclASRView
@@ -305,7 +320,7 @@ function Invoke-ExclRefresh
 			'Proc' {
 				# ExclusionProcess requires elevation
 				$SRP = Get-CDSRP
-				$SRP.DataObject = 'Get-CDExclusionProcesses' | Send-Request @SRP
+				$SRP.DataObject = 'Get-CDExclusionProcess' | Send-Request @SRP
 				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
 				$script:ExclProcCache = @($SRP.DataObject.Result)
 				Update-ExclProcView
@@ -313,7 +328,7 @@ function Invoke-ExclRefresh
 			}
 			'Path' {
 				$SRP = Get-CDSRP
-				$SRP.DataObject = 'Get-CDExclusionPaths' | Send-Request @SRP
+				$SRP.DataObject = 'Get-CDExclusionPath' | Send-Request @SRP
 				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
 				$script:ExclPathCache = @($SRP.DataObject.Result)
 				Update-ExclPathView
@@ -321,7 +336,7 @@ function Invoke-ExclRefresh
 			}
 			'Ext'  {
 				$SRP = Get-CDSRP
-				$SRP.DataObject = 'Get-CDExclusionExtensions' | Send-Request @SRP
+				$SRP.DataObject = 'Get-CDExclusionExtension' | Send-Request @SRP
 				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
 				$script:ExclExtCache = @($SRP.DataObject.Result)
 				Update-ExclExtView
@@ -329,7 +344,7 @@ function Invoke-ExclRefresh
 			}
 			'IP'   {
 				$SRP = Get-CDSRP
-				$SRP.DataObject = 'Get-CDExclusionIpAddresses' | Send-Request @SRP
+				$SRP.DataObject = 'Get-CDExclusionIpAddress' | Send-Request @SRP
 				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
 				$script:ExclIPCache = @($SRP.DataObject.Result)
 				Update-ExclIPView
@@ -350,241 +365,241 @@ $TsBtnExclRefresh.Add_Click({ Invoke-ExclRefresh })
 
 # --- Add ---
 $TsBtnExclAdd.Add_Click({
-	$Val = switch ($script:ExclCategory)
-	{
-		'ASR'  { Show-ExclPathDialog 'Add ASR Exclusion' }
-		'Proc' { Show-ExclProcessDialog 'Add Exclusion Process' }
-		'Path' { Show-ExclPathDialog 'Add Exclusion Path' }
-		'Ext'  { Show-SimpleTextDialog 'Add Exclusion Extension' 'File extension to exclude (e.g. .tmp or tmp):' }
-		'IP'   { Show-SimpleTextDialog 'Add Exclusion IP Address' 'IP address to exclude (IPv4 or IPv6):' }
-	}
-	if ($Val)
-	{
-		if ($script:ExclCategory -eq 'ASR' -and -not (Test-CDExclusionPath $Val))
+		$Val = switch ($script:ExclCategory)
 		{
-			[System.Windows.Forms.MessageBox]::Show(
-				"'$Val' is not a valid exclusion path.`n`nPath must be absolute and start with a drive letter (C:\), UNC path (\\server\share\), or environment variable (%APPDATA%\).`nInvalid characters: < > `" |",
-				'Invalid Path', 'OK', 'Warning') | Out-Null
-			return
+			'ASR'  { Show-ExclPathDialog 'Add ASR Exclusion' }
+			'Proc' { Show-ExclProcessDialog 'Add Exclusion Process' }
+			'Path' { Show-ExclPathDialog 'Add Exclusion Path' }
+			'Ext'  { Show-SimpleTextDialog 'Add Exclusion Extension' 'File extension to exclude (e.g. .tmp or tmp):' }
+			'IP'   { Show-SimpleTextDialog 'Add Exclusion IP Address' 'IP address to exclude (IPv4 or IPv6):' }
 		}
-		if ($script:ExclCategory -eq 'Proc' -and -not (Test-CDExclusionProcess $Val))
+		if ($Val)
 		{
-			[System.Windows.Forms.MessageBox]::Show(
-				"'$Val' is not a valid process exclusion.`n`nEnter a bare process name (e.g. app.exe) or an absolute path (e.g. C:\Folder\app.exe or \\server\share\app.exe).`nInvalid characters: < > `" |",
-				'Invalid Process', 'OK', 'Warning') | Out-Null
-			return
-		}
-		if ($script:ExclCategory -eq 'Ext' -and -not (Test-CDExclusionExtension $Val))
-		{
-			[System.Windows.Forms.MessageBox]::Show(
-				"'$Val' is not a valid file extension.`n`nEnter an extension with or without a leading dot (e.g. tmp or .tmp). No spaces, wildcards, or path characters.",
-				'Invalid Extension', 'OK', 'Warning') | Out-Null
-			return
-		}
-		if ($script:ExclCategory -eq 'Path' -and -not (Test-CDExclusionPath $Val))
-		{
-			[System.Windows.Forms.MessageBox]::Show(
-				"'$Val' is not a valid exclusion path.`n`nPath must be absolute and start with a drive letter (C:\), UNC path (\\server\share\), or environment variable (%APPDATA%\).`nInvalid characters: < > `" |",
-				'Invalid Path', 'OK', 'Warning') | Out-Null
-			return
-		}
-		if ($script:ExclCategory -eq 'IP' -and -not (Test-CDIPAddress $Val))
-		{
-			[System.Windows.Forms.MessageBox]::Show("'$Val' is not a valid IP address or CIDR range (e.g. 192.168.1.1 or 10.0.0.0/8).", 'Invalid IP Address', 'OK', 'Warning') | Out-Null
-			return
-		}
-		try
-		{
-			$SRP     = Get-CDSRP
-			$Escaped = $Val -replace "'", "''"
-			switch ($script:ExclCategory)
+			if ($script:ExclCategory -eq 'ASR' -and -not (Test-CDExclusionPath $Val))
 			{
-				'ASR'  {
-					$SRP.DataObject = "Set-CDASRExclusion -Path '$Escaped' -Add" | Send-Request @SRP
-					if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
-				}
-				'Proc' {
-					$SRP.DataObject = "Set-CDExclusionProcess -Process '$Escaped' -Add" | Send-Request @SRP
-					if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
-				}
-				'Path' {
-					$SRP.DataObject = "Set-CDExclusionPath -Path '$Escaped' -Add" | Send-Request @SRP
-					if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
-				}
-				'Ext'  {
-					$SRP.DataObject = "Set-CDExclusionExtension -Extension '$Escaped' -Add" | Send-Request @SRP
-					if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
-				}
-				'IP'   {
-					$SRP.DataObject = "Set-CDExclusionIpAddress -IpAddress '$Escaped' -Add" | Send-Request @SRP
-					if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
+				[System.Windows.Forms.MessageBox]::Show(
+					"'$Val' is not a valid exclusion path.`n`nPath must be absolute and start with a drive letter (C:\), UNC path (\\server\share\), or environment variable (%APPDATA%\).`nInvalid characters: < > `" |",
+					'Invalid Path', 'OK', 'Warning') | Out-Null
+				return
+			}
+			if ($script:ExclCategory -eq 'Proc' -and -not (Test-CDExclusionProcess $Val))
+			{
+				[System.Windows.Forms.MessageBox]::Show(
+					"'$Val' is not a valid process exclusion.`n`nEnter a bare process name (e.g. app.exe) or an absolute path (e.g. C:\Folder\app.exe or \\server\share\app.exe).`nInvalid characters: < > `" |",
+					'Invalid Process', 'OK', 'Warning') | Out-Null
+				return
+			}
+			if ($script:ExclCategory -eq 'Ext' -and -not (Test-CDExclusionExtension $Val))
+			{
+				[System.Windows.Forms.MessageBox]::Show(
+					"'$Val' is not a valid file extension.`n`nEnter an extension with or without a leading dot (e.g. tmp or .tmp). No spaces, wildcards, or path characters.",
+					'Invalid Extension', 'OK', 'Warning') | Out-Null
+				return
+			}
+			if ($script:ExclCategory -eq 'Path' -and -not (Test-CDExclusionPath $Val))
+			{
+				[System.Windows.Forms.MessageBox]::Show(
+					"'$Val' is not a valid exclusion path.`n`nPath must be absolute and start with a drive letter (C:\), UNC path (\\server\share\), or environment variable (%APPDATA%\).`nInvalid characters: < > `" |",
+					'Invalid Path', 'OK', 'Warning') | Out-Null
+				return
+			}
+			if ($script:ExclCategory -eq 'IP' -and -not (Test-CDIPAddress $Val))
+			{
+				[System.Windows.Forms.MessageBox]::Show("'$Val' is not a valid IP address or CIDR range (e.g. 192.168.1.1 or 10.0.0.0/8).", 'Invalid IP Address', 'OK', 'Warning') | Out-Null
+				return
+			}
+			try
+			{
+				$SRP     = Get-CDSRP
+				$Escaped = $Val -replace "'", "''"
+				switch ($script:ExclCategory)
+				{
+					'ASR'  {
+						$SRP.DataObject = "Set-CDASRExclusion -Path '$Escaped' -Add" | Send-Request @SRP
+						if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
+					}
+					'Proc' {
+						$SRP.DataObject = "Set-CDExclusionProcess -Process '$Escaped' -Add" | Send-Request @SRP
+						if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
+					}
+					'Path' {
+						$SRP.DataObject = "Set-CDExclusionPath -Path '$Escaped' -Add" | Send-Request @SRP
+						if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
+					}
+					'Ext'  {
+						$SRP.DataObject = "Set-CDExclusionExtension -Extension '$Escaped' -Add" | Send-Request @SRP
+						if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
+					}
+					'IP'   {
+						$SRP.DataObject = "Set-CDExclusionIpAddress -IpAddress '$Escaped' -Add" | Send-Request @SRP
+						if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" } else { $TsBtnExclRefresh.PerformClick() }
+					}
 				}
 			}
+			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
 		}
-		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-	}
-})
+	})
 
 # --- DoubleClick (edit) ---
 $LvExclASR.Add_DoubleClick({
-	$Li = $LvExclASR.FocusedItem
-	if (-not $Li -or $Li.Tag -eq '$placeholder') { return }
-	$OldVal = $Li.Text
-	$NewVal = Show-ExclPathDialog 'Edit ASR Exclusion' $OldVal
-	if ($NewVal -and $NewVal -ne $OldVal)
-	{
-		if (-not (Test-CDExclusionPath $NewVal))
+		$Li = $LvExclASR.FocusedItem
+		if (-not $Li -or $Li.Tag -eq '$placeholder') { return }
+		$OldVal = $Li.Text
+		$NewVal = Show-ExclPathDialog 'Edit ASR Exclusion' $OldVal
+		if ($NewVal -and $NewVal -ne $OldVal)
 		{
-			[System.Windows.Forms.MessageBox]::Show(
-				"'$NewVal' is not a valid exclusion path.`n`nPath must be absolute and start with a drive letter (C:\), UNC path (\\server\share\), or environment variable (%APPDATA%\).`nInvalid characters: < > `" |",
-				'Invalid Path', 'OK', 'Warning') | Out-Null
-			return
+			if (-not (Test-CDExclusionPath $NewVal))
+			{
+				[System.Windows.Forms.MessageBox]::Show(
+					"'$NewVal' is not a valid exclusion path.`n`nPath must be absolute and start with a drive letter (C:\), UNC path (\\server\share\), or environment variable (%APPDATA%\).`nInvalid characters: < > `" |",
+					'Invalid Path', 'OK', 'Warning') | Out-Null
+				return
+			}
+			try
+			{
+				$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
+				$SRP.DataObject = "Set-CDASRExclusion -Path '$EscOld' -Remove" | Send-Request @SRP
+				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old path: $($SRP.DataObject.Error)"; return }
+				$SRP.DataObject = "Set-CDASRExclusion -Path '$EscNew' -Add" | Send-Request @SRP
+				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new path: $($SRP.DataObject.Error)"; return }
+				$TsBtnExclRefresh.PerformClick()
+			}
+			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
 		}
-		try
-		{
-			$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
-			$SRP.DataObject = "Set-CDASRExclusion -Path '$EscOld' -Remove" | Send-Request @SRP
-			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old path: $($SRP.DataObject.Error)"; return }
-			$SRP.DataObject = "Set-CDASRExclusion -Path '$EscNew' -Add" | Send-Request @SRP
-			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new path: $($SRP.DataObject.Error)"; return }
-			$TsBtnExclRefresh.PerformClick()
-		}
-		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-	}
-})
+	})
 
 $LvProc.Add_DoubleClick({
-	$Li = $LvProc.FocusedItem
-	if (-not $Li -or $Li.Tag -eq '$placeholder') { return }
-	$OldVal = $Li.Text
-	$NewVal = Show-ExclProcessDialog 'Edit Exclusion Process' $OldVal
-	if ($NewVal -and $NewVal -ne $OldVal)
-	{
-		if (-not (Test-CDExclusionProcess $NewVal))
+		$Li = $LvProc.FocusedItem
+		if (-not $Li -or $Li.Tag -eq '$placeholder') { return }
+		$OldVal = $Li.Text
+		$NewVal = Show-ExclProcessDialog 'Edit Exclusion Process' $OldVal
+		if ($NewVal -and $NewVal -ne $OldVal)
 		{
-			[System.Windows.Forms.MessageBox]::Show(
-				"'$NewVal' is not a valid process exclusion.`n`nEnter a bare process name (e.g. app.exe) or an absolute path (e.g. C:\Folder\app.exe or \\server\share\app.exe).`nInvalid characters: < > `" |",
-				'Invalid Process', 'OK', 'Warning') | Out-Null
-			return
+			if (-not (Test-CDExclusionProcess $NewVal))
+			{
+				[System.Windows.Forms.MessageBox]::Show(
+					"'$NewVal' is not a valid process exclusion.`n`nEnter a bare process name (e.g. app.exe) or an absolute path (e.g. C:\Folder\app.exe or \\server\share\app.exe).`nInvalid characters: < > `" |",
+					'Invalid Process', 'OK', 'Warning') | Out-Null
+				return
+			}
+			try
+			{
+				$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
+				$SRP.DataObject = "Set-CDExclusionProcess -Process '$EscOld' -Remove" | Send-Request @SRP
+				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old entry: $($SRP.DataObject.Error)"; return }
+				$SRP.DataObject = "Set-CDExclusionProcess -Process '$EscNew' -Add" | Send-Request @SRP
+				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new entry: $($SRP.DataObject.Error)"; return }
+				$TsBtnExclRefresh.PerformClick()
+			}
+			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
 		}
-		try
-		{
-			$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
-			$SRP.DataObject = "Set-CDExclusionProcess -Process '$EscOld' -Remove" | Send-Request @SRP
-			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old entry: $($SRP.DataObject.Error)"; return }
-			$SRP.DataObject = "Set-CDExclusionProcess -Process '$EscNew' -Add" | Send-Request @SRP
-			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new entry: $($SRP.DataObject.Error)"; return }
-			$TsBtnExclRefresh.PerformClick()
-		}
-		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-	}
-})
+	})
 
 $LvPath.Add_DoubleClick({
-	$Li = $LvPath.FocusedItem
-	if (-not $Li -or $Li.Tag -eq '$placeholder') { return }
-	$OldVal = $Li.Text
-	$NewVal = Show-ExclPathDialog 'Edit Exclusion Path' $OldVal
-	if ($NewVal -and $NewVal -ne $OldVal)
-	{
-		if (-not (Test-CDExclusionPath $NewVal))
+		$Li = $LvPath.FocusedItem
+		if (-not $Li -or $Li.Tag -eq '$placeholder') { return }
+		$OldVal = $Li.Text
+		$NewVal = Show-ExclPathDialog 'Edit Exclusion Path' $OldVal
+		if ($NewVal -and $NewVal -ne $OldVal)
 		{
-			[System.Windows.Forms.MessageBox]::Show(
-				"'$NewVal' is not a valid exclusion path.`n`nPath must be absolute and start with a drive letter (C:\), UNC path (\\server\share\), or environment variable (%APPDATA%\).`nInvalid characters: < > `" |",
-				'Invalid Path', 'OK', 'Warning') | Out-Null
-			return
+			if (-not (Test-CDExclusionPath $NewVal))
+			{
+				[System.Windows.Forms.MessageBox]::Show(
+					"'$NewVal' is not a valid exclusion path.`n`nPath must be absolute and start with a drive letter (C:\), UNC path (\\server\share\), or environment variable (%APPDATA%\).`nInvalid characters: < > `" |",
+					'Invalid Path', 'OK', 'Warning') | Out-Null
+				return
+			}
+			try
+			{
+				$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
+				$SRP.DataObject = "Set-CDExclusionPath -Path '$EscOld' -Remove" | Send-Request @SRP
+				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old path: $($SRP.DataObject.Error)"; return }
+				$SRP.DataObject = "Set-CDExclusionPath -Path '$EscNew' -Add" | Send-Request @SRP
+				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new path: $($SRP.DataObject.Error)"; return }
+				$TsBtnExclRefresh.PerformClick()
+			}
+			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
 		}
-		try
-		{
-			$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
-			$SRP.DataObject = "Set-CDExclusionPath -Path '$EscOld' -Remove" | Send-Request @SRP
-			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old path: $($SRP.DataObject.Error)"; return }
-			$SRP.DataObject = "Set-CDExclusionPath -Path '$EscNew' -Add" | Send-Request @SRP
-			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new path: $($SRP.DataObject.Error)"; return }
-			$TsBtnExclRefresh.PerformClick()
-		}
-		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-	}
-})
+	})
 
 $LvExt.Add_DoubleClick({
-	$Li = $LvExt.FocusedItem
-	if (-not $Li -or $Li.Tag -eq '$placeholder') { return }
-	$OldVal = $Li.Text
-	$NewVal = Show-SimpleTextDialog 'Edit Exclusion Extension' 'File extension to exclude (e.g. .tmp or tmp):' $OldVal
-	if ($NewVal -and $NewVal -ne $OldVal)
-	{
-		if (-not (Test-CDExclusionExtension $NewVal))
+		$Li = $LvExt.FocusedItem
+		if (-not $Li -or $Li.Tag -eq '$placeholder') { return }
+		$OldVal = $Li.Text
+		$NewVal = Show-SimpleTextDialog 'Edit Exclusion Extension' 'File extension to exclude (e.g. .tmp or tmp):' $OldVal
+		if ($NewVal -and $NewVal -ne $OldVal)
 		{
-			[System.Windows.Forms.MessageBox]::Show(
-				"'$NewVal' is not a valid file extension.`n`nEnter an extension with or without a leading dot (e.g. tmp or .tmp). No spaces, wildcards, or path characters.",
-				'Invalid Extension', 'OK', 'Warning') | Out-Null
-			return
+			if (-not (Test-CDExclusionExtension $NewVal))
+			{
+				[System.Windows.Forms.MessageBox]::Show(
+					"'$NewVal' is not a valid file extension.`n`nEnter an extension with or without a leading dot (e.g. tmp or .tmp). No spaces, wildcards, or path characters.",
+					'Invalid Extension', 'OK', 'Warning') | Out-Null
+				return
+			}
+			try
+			{
+				$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
+				$SRP.DataObject = "Set-CDExclusionExtension -Extension '$EscOld' -Remove" | Send-Request @SRP
+				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old extension: $($SRP.DataObject.Error)"; return }
+				$SRP.DataObject = "Set-CDExclusionExtension -Extension '$EscNew' -Add" | Send-Request @SRP
+				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new extension: $($SRP.DataObject.Error)"; return }
+				$TsBtnExclRefresh.PerformClick()
+			}
+			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
 		}
-		try
-		{
-			$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
-			$SRP.DataObject = "Set-CDExclusionExtension -Extension '$EscOld' -Remove" | Send-Request @SRP
-			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old extension: $($SRP.DataObject.Error)"; return }
-			$SRP.DataObject = "Set-CDExclusionExtension -Extension '$EscNew' -Add" | Send-Request @SRP
-			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new extension: $($SRP.DataObject.Error)"; return }
-			$TsBtnExclRefresh.PerformClick()
-		}
-		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-	}
-})
+	})
 
 $LvIP.Add_DoubleClick({
-	$Li = $LvIP.FocusedItem
-	if (-not $Li -or $Li.Tag -eq '$placeholder') { return }
-	$OldVal = $Li.Text
-	$NewVal = Show-SimpleTextDialog 'Edit Exclusion IP Address' 'IP address to exclude (IPv4 or IPv6):' $OldVal
-	if ($NewVal -and $NewVal -ne $OldVal)
-	{
-		if (-not (Test-CDIPAddress $NewVal))
+		$Li = $LvIP.FocusedItem
+		if (-not $Li -or $Li.Tag -eq '$placeholder') { return }
+		$OldVal = $Li.Text
+		$NewVal = Show-SimpleTextDialog 'Edit Exclusion IP Address' 'IP address to exclude (IPv4 or IPv6):' $OldVal
+		if ($NewVal -and $NewVal -ne $OldVal)
 		{
-			[System.Windows.Forms.MessageBox]::Show("'$NewVal' is not a valid IP address or CIDR range (e.g. 192.168.1.1 or 10.0.0.0/8).", 'Invalid IP Address', 'OK', 'Warning') | Out-Null
-			return
+			if (-not (Test-CDIPAddress $NewVal))
+			{
+				[System.Windows.Forms.MessageBox]::Show("'$NewVal' is not a valid IP address or CIDR range (e.g. 192.168.1.1 or 10.0.0.0/8).", 'Invalid IP Address', 'OK', 'Warning') | Out-Null
+				return
+			}
+			try
+			{
+				$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
+				$SRP.DataObject = "Set-CDExclusionIpAddress -IpAddress '$EscOld' -Remove" | Send-Request @SRP
+				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old IP: $($SRP.DataObject.Error)"; return }
+				$SRP.DataObject = "Set-CDExclusionIpAddress -IpAddress '$EscNew' -Add" | Send-Request @SRP
+				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new IP: $($SRP.DataObject.Error)"; return }
+				$TsBtnExclRefresh.PerformClick()
+			}
+			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
 		}
-		try
-		{
-			$SRP = Get-CDSRP; $EscOld = $OldVal -replace "'","''"; $EscNew = $NewVal -replace "'","''"
-			$SRP.DataObject = "Set-CDExclusionIpAddress -IpAddress '$EscOld' -Remove" | Send-Request @SRP
-			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old IP: $($SRP.DataObject.Error)"; return }
-			$SRP.DataObject = "Set-CDExclusionIpAddress -IpAddress '$EscNew' -Add" | Send-Request @SRP
-			if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new IP: $($SRP.DataObject.Error)"; return }
-			$TsBtnExclRefresh.PerformClick()
-		}
-		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-	}
-})
+	})
 
 # --- Remove ---
 $TsBtnExclRemove.Add_Click({
-	$Lv = switch ($script:ExclCategory) { 'ASR' { $LvExclASR } 'Proc' { $LvProc } 'Path' { $LvPath } 'Ext' { $LvExt } 'IP' { $LvIP } }
-	$Selected = @($Lv.SelectedItems | Where-Object { $_.Tag -ne '$placeholder' })
-	if ($Selected.Count -eq 0) { $StatusLabel.Text = 'No items selected.'; return }
-	try
-	{
-		$SRP = Get-CDSRP; $Ok = 0; $ErrCount = 0
-		foreach ($Li in $Selected)
+		$Lv = switch ($script:ExclCategory) { 'ASR' { $LvExclASR } 'Proc' { $LvProc } 'Path' { $LvPath } 'Ext' { $LvExt } 'IP' { $LvIP } }
+		$Selected = @($Lv.SelectedItems | Where-Object { $_.Tag -ne '$placeholder' })
+		if ($Selected.Count -eq 0) { $StatusLabel.Text = 'No items selected.'; return }
+		try
 		{
-			$Val = $Li.Text; $Escaped = $Val -replace "'", "''"
-			$Cmd = switch ($script:ExclCategory)
+			$SRP = Get-CDSRP; $Ok = 0; $ErrCount = 0
+			foreach ($Li in $Selected)
 			{
-				'ASR'  { "Set-CDASRExclusion -Path '$Escaped' -Remove" }
-				'Proc' { "Set-CDExclusionProcess -Process '$Escaped' -Remove" }
-				'Path' { "Set-CDExclusionPath -Path '$Escaped' -Remove" }
-				'Ext'  { "Set-CDExclusionExtension -Extension '$Escaped' -Remove" }
-				'IP'   { "Set-CDExclusionIpAddress -IpAddress '$Escaped' -Remove" }
+				$Val = $Li.Text; $Escaped = $Val -replace "'", "''"
+				$Cmd = switch ($script:ExclCategory)
+				{
+					'ASR'  { "Set-CDASRExclusion -Path '$Escaped' -Remove" }
+					'Proc' { "Set-CDExclusionProcess -Process '$Escaped' -Remove" }
+					'Path' { "Set-CDExclusionPath -Path '$Escaped' -Remove" }
+					'Ext'  { "Set-CDExclusionExtension -Extension '$Escaped' -Remove" }
+					'IP'   { "Set-CDExclusionIpAddress -IpAddress '$Escaped' -Remove" }
+				}
+				$SRP.DataObject = $Cmd | Send-Request @SRP
+				if ($SRP.DataObject.Error) { $ErrCount++; $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
+				else { $Ok++ }
 			}
-			$SRP.DataObject = $Cmd | Send-Request @SRP
-			if ($SRP.DataObject.Error) { $ErrCount++; $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-			else { $Ok++ }
+			if ($ErrCount -gt 0) { $StatusLabel.Text = "Removed $Ok, $ErrCount error(s)." }
+			if ($Ok -gt 0) { $TsBtnExclRefresh.PerformClick() }
 		}
-		if ($ErrCount -gt 0) { $StatusLabel.Text = "Removed $Ok, $ErrCount error(s)." }
-		if ($Ok -gt 0) { $TsBtnExclRefresh.PerformClick() }
-	}
-	catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
-})
+		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
+	})
 #endregion

@@ -19,6 +19,8 @@ Function Set-CDExclusionProcess
 		.PARAMETER Remove
 		Remove the process from the exclusion list.
 	#>
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'Set-CDExclusionProcess writes a process exclusion - state change is the explicit purpose of this function.')]
 	[CmdletBinding(DefaultParameterSetName = 'Add')]
 	param
 	(

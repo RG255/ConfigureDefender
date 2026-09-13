@@ -18,6 +18,8 @@ Function Set-CDControlledFolderAccess
 		.PARAMETER Disable
 		Disable Controlled Folder Access (value 0).
 	#>
+	[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '',
+		Justification = 'Set-CDControlledFolderAccess toggles the CFA feature state - state change is the explicit purpose of this function.')]
 	[CmdletBinding(DefaultParameterSetName = 'Enable')]
 	param
 	(

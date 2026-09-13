@@ -8,17 +8,17 @@
 
 @{
 	RootModule        = 'InitialiseModule.psm1'
-	ModuleVersion     = '0.3'
+	ModuleVersion     = '0.4'
 	GUID              = 'b4ddb8e6-c93f-4879-9209-31f600ad2a36'
 	Author            = 'RayG'
 	CompanyName       = 'RayG'
 	Copyright         = '(c) 2026 RayG. All rights reserved.'
-	Description       = 'Manages Microsoft Defender configuration: ASR rules, exclusions, Controlled Folder Access, Network Protection, and event inspection. Provides a GUI front-end via NamedPipe elevation. v0.3: Security hardening - path validation in dialogs.'
+	Description       = 'Manages Microsoft Defender configuration: ASR rules, exclusions, Controlled Folder Access, Network Protection, and event inspection. Provides a GUI front-end via NamedPipe elevation. v0.4: PSScriptAnalyzer cleanup - 13 exported Get-CD* accessors renamed to singular nouns to match their existing Set-CD* siblings (breaking change, see CHANGELOG.md).'
 	PowerShellVersion = '5.0'
 	RequiredModules   = @(
 		@{
 			ModuleName      = 'NamedPipe'
-			RequiredVersion = '0.13'
+			RequiredVersion = '0.14'
 		}
 	)
 	# Explicit exports so PowerShell can AUTO-LOAD the module on first use of any of
@@ -27,15 +27,22 @@
 	# FunctionExportTable in Functions\DefineVariables.ps1 - the effective exports are
 	# the INTERSECTION of the two, so a name dropped here becomes unavailable.
 	FunctionsToExport = @(
-		'Get-CDASRRules', 'Get-CDEvents', 'Get-CDControlledFolders', 'Get-CDNetworkProtection',
-		'Get-CDControlledFolderAccess', 'Get-CDASRExclusions', 'Get-CDExclusionProcesses',
-		'Get-CDExclusionPaths', 'Get-CDExclusionExtensions', 'Get-CDExclusionIpAddresses',
-		'Get-CDAllowedApplications', 'Get-CDSettings', 'Get-CDThreatActions', 'Get-CDThreatDetections',
+		# 2026-09-12 (v0.4): 13 Get-CD* accessors renamed to singular nouns (PSUseSingularNouns
+		# cleanup) - each now matches its existing Set-CD* sibling's naming exactly.
+		'Get-CDASRRule', 'Get-CDEvent', 'Get-CDControlledFolder', 'Get-CDNetworkProtection',
+		'Get-CDControlledFolderAccess', 'Get-CDASRExclusion', 'Get-CDExclusionProcess',
+		'Get-CDExclusionPath', 'Get-CDExclusionExtension', 'Get-CDExclusionIpAddress',
+		'Get-CDAllowedApplication', 'Get-CDSetting', 'Get-CDThreatAction', 'Get-CDThreatDetection',
 		'Set-CDASRRule', 'Set-CDASRExclusion', 'Set-CDExclusionProcess', 'Set-CDExclusionPath',
 		'Set-CDExclusionExtension', 'Set-CDExclusionIpAddress', 'Set-CDSetting', 'Set-CDThreatAction',
 		'Set-CDControlledFolder', 'Set-CDAllowedApplication', 'Set-CDControlledFolderAccess',
 		'Set-CDNetworkProtection', 'Set-CDCIVerbose', 'Open-CDPipeSession', 'Close-CDPipeSession',
-		'Get-CDSendRequestParams', 'Test-CDPipeSession', 'Start-ConfigureDefenderGUI'
+		'Get-CDSendRequestParam', 'Test-CDPipeSession', 'Start-ConfigureDefenderGUI',
+		# 2026-09-07: vendored catch-audit utilities (replaces the retired self-authored
+		# Write-CDCatchAudit/Enable-CDCatchAudit/Disable-CDCatchAudit) - Write-MyCatchAudit itself
+		# stays internal, matching VHDTools' identical exception (see Shared-Usage.psd1).
+		'Enable-MyCatchAudit', 'Disable-MyCatchAudit', 'Get-MyCatchAuditLog', 'Show-MyCatchAuditSummary',
+		'Clear-MyCatchAuditLog', 'Invoke-MyCatchAuditTriage'
 	)
 	CmdletsToExport   = @()
 	# '*' not @(): the psm1 exports its variable vocabulary via Export-ModuleMember

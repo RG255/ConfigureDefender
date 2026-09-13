@@ -1,5 +1,5 @@
 ﻿#requires -Version 5.0
-Function Get-CDAllowedApplications
+Function Get-CDAllowedApplication
 {
 	<#
 		.SYNOPSIS

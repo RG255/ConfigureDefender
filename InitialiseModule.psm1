@@ -16,7 +16,7 @@
 
 	.EXAMPLE
 	Remove-Module ConfigureDefender -Force -ErrorAction SilentlyContinue
-	Import-Module ConfigureDefender -RequiredVersion 0.3
+	Import-Module ConfigureDefender -RequiredVersion 0.4
 #>
 try
 {
@@ -44,7 +44,23 @@ try
 		}
 	}
 
-	Function Initialize-Folders
+	Function Show-CDModuleLoadedBanner
+	{
+		# Deliberately process-wide, not per-module-import - shows the load banner ONCE per process
+		# even if the module is re-imported (-Force during development, or auto-loaded then explicitly
+		# imported again), same "show once" pattern as the vendored MyCatchAuditNoticeShown flag.
+		[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '',
+			Justification = 'Deliberately process-wide - the "show once per process" guard only works if it survives a module re-import, which a $script: var would not.')]
+		[CmdletBinding()]
+		Param ()
+		if (-not $global:CDModuleMessageShown)
+		{
+			Write-Host 'ConfigureDefender loaded. To use run: Start-ConfigureDefenderGUI'
+			$global:CDModuleMessageShown = $true
+		}
+	}
+
+	Function Initialize-Folder
 	{
 		[CmdletBinding()]
 		Param (
@@ -59,7 +75,7 @@ try
 		}
 	}
 
-	Function Publish-Variables
+	Function Publish-Variable
 	{
 		Param ([hashtable]$Variables)
 		Try
@@ -97,6 +113,7 @@ try
 	Function Get-Psd1Data
 	{
 		[CmdletBinding()]
+		[OutputType([Hashtable])]
 		Param (
 			[Parameter(Mandatory)]
 			[Microsoft.PowerShell.DesiredStateConfiguration.ArgumentToConfigurationDataTransformation()]
@@ -142,7 +159,7 @@ catch
 try
 {
 	# Ensure required folders exist
-	Initialize-Folders -Folders 'Functions', 'FunctionsWindows'
+	Initialize-Folder -Folders 'Functions', 'FunctionsWindows'
 
 	# Load common variable definitions (DefineVariables.ps1)
 	Publish-MyEnvironment
@@ -151,8 +168,11 @@ try
 	$VarDefFiles = @($PSD1Data.PrivateData.ModuleVars[''].Values)
 	$Exclude     = [regex]'(?i)DefineVariables|Define-CustomXML|\.zip$'
 
-	# Dot-source and export common (cross-platform) functions
-	$CommonFunctions = Get-ChildItem -Path (Join-Path -Path $ModuleScriptRoot -ChildPath 'Functions\*.ps1') -ErrorAction Stop |
+	# Dot-source and export common (cross-platform) functions. Vendored CommonScripts copies (see
+	# Shared-Usage.psd1) sit in their own 'vendored' subfolder (changed 2026-09-13) for filesystem
+	# visibility - unioned in here so they still go through the same export-table logic below.
+	$CommonFunctions = @(Get-ChildItem -Path (Join-Path -Path $ModuleScriptRoot -ChildPath 'Functions\*.ps1') -ErrorAction Stop) +
+		@(Get-ChildItem -Path (Join-Path -Path $ModuleScriptRoot -ChildPath 'Functions\vendored\*.ps1') -ErrorAction SilentlyContinue) |
 		Where-Object { $_.Name -inotmatch $Exclude -and $_.Name -notin $VarDefFiles }
 
 	foreach ($Item in $CommonFunctions)
@@ -205,11 +225,7 @@ try
 		{ throw 'ConfigureDefender requires Windows.' }
 	}
 
-	if (-not $global:CDModuleMessageShown)
-	{
-		Write-Host 'ConfigureDefender loaded. To use run: Start-ConfigureDefenderGUI'
-		$global:CDModuleMessageShown = $true
-	}
+	Show-CDModuleLoadedBanner
 }
 catch
 {
@@ -223,3 +239,8 @@ catch
 		($Global:Error[$ErrorNumber].InvocationInfo.Line).Trim() | Write-Warning
 	throw 'Unable to initialise module: {0}' -f $ModuleName
 }
+
+# Catch-audit: surface any PERSISTED entries from a previous session/crash, once per process across
+# every vendoring module (see Show-MyCatchAuditPendingNotice's own doc, 2026-09-10). Wrapped so a
+# failure here can never turn into a module-import failure.
+try { Show-MyCatchAuditPendingNotice } catch { Write-MyCatchAudit -Source 'InitialiseModule.psm1 (ConfigureDefender): module-init pending-catch-audit notice' -ErrorRecord $_ }

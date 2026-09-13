@@ -74,16 +74,16 @@ function Show-ExclPathDialog ([string]$Title, [string]$Initial = '')
 	$BtnFile.Location = New-Object System.Drawing.Point(355, 28)
 	$BtnFile.Size     = New-Object System.Drawing.Size(55, 25)
 	$BtnFile.Add_Click({
-		$OFD        = New-Object System.Windows.Forms.OpenFileDialog
-		$OFD.Title  = 'Select a file to exclude'
-		$OFD.Filter = 'All files (*.*)|*.*'
-		if ($OFD.ShowDialog() -eq 'OK') {
-			$FileName = $OFD.FileName
-			if (Test-ExclusionPath -Path $FileName) {
-				$Txt.Text = $FileName
+			$OFD        = New-Object System.Windows.Forms.OpenFileDialog
+			$OFD.Title  = 'Select a file to exclude'
+			$OFD.Filter = 'All files (*.*)|*.*'
+			if ($OFD.ShowDialog() -eq 'OK') {
+				$FileName = $OFD.FileName
+				if (Test-ExclusionPath -Path $FileName) {
+					$Txt.Text = $FileName
+				}
 			}
-		}
-	})
+		})
 	$Dlg.Controls.Add($BtnFile)
 
 	$BtnFolder          = New-Object System.Windows.Forms.Button
@@ -91,15 +91,15 @@ function Show-ExclPathDialog ([string]$Title, [string]$Initial = '')
 	$BtnFolder.Location = New-Object System.Drawing.Point(415, 28)
 	$BtnFolder.Size     = New-Object System.Drawing.Size(60, 25)
 	$BtnFolder.Add_Click({
-		$FBD             = New-Object System.Windows.Forms.FolderBrowserDialog
-		$FBD.Description = 'Select a folder to exclude'
-		if ($FBD.ShowDialog() -eq 'OK') {
-			$FolderPath = $FBD.SelectedPath
-			if (Test-ExclusionPath -Path $FolderPath) {
-				$Txt.Text = $FolderPath
+			$FBD             = New-Object System.Windows.Forms.FolderBrowserDialog
+			$FBD.Description = 'Select a folder to exclude'
+			if ($FBD.ShowDialog() -eq 'OK') {
+				$FolderPath = $FBD.SelectedPath
+				if (Test-ExclusionPath -Path $FolderPath) {
+					$Txt.Text = $FolderPath
+				}
 			}
-		}
-	})
+		})
 	$Dlg.Controls.Add($BtnFolder)
 
 	$BtnOK              = New-Object System.Windows.Forms.Button
@@ -151,11 +151,11 @@ function Show-ExclProcessDialog ([string]$Title, [string]$Initial = '')
 	$BtnBrowse.Location = New-Object System.Drawing.Point(375, 28)
 	$BtnBrowse.Size     = New-Object System.Drawing.Size(70, 25)
 	$BtnBrowse.Add_Click({
-		$OFD        = New-Object System.Windows.Forms.OpenFileDialog
-		$OFD.Title  = 'Select a process executable to exclude'
-		$OFD.Filter = 'Executable files (*.exe)|*.exe|All files (*.*)|*.*'
-		if ($OFD.ShowDialog() -eq 'OK') { $Txt.Text = $OFD.FileName }
-	})
+			$OFD        = New-Object System.Windows.Forms.OpenFileDialog
+			$OFD.Title  = 'Select a process executable to exclude'
+			$OFD.Filter = 'Executable files (*.exe)|*.exe|All files (*.*)|*.*'
+			if ($OFD.ShowDialog() -eq 'OK') { $Txt.Text = $OFD.FileName }
+		})
 	$Dlg.Controls.Add($BtnBrowse)
 
 	$BtnRunning          = New-Object System.Windows.Forms.Button
@@ -163,73 +163,73 @@ function Show-ExclProcessDialog ([string]$Title, [string]$Initial = '')
 	$BtnRunning.Location = New-Object System.Drawing.Point(450, 28)
 	$BtnRunning.Size     = New-Object System.Drawing.Size(75, 25)
 	$BtnRunning.Add_Click({
-		$Picker                 = New-Object System.Windows.Forms.Form
-		$Picker.Text            = 'Select Running Process'
-		$Picker.Size            = New-Object System.Drawing.Size(340, 500)
-		$Picker.StartPosition   = 'CenterParent'
-		$Picker.FormBorderStyle = 'Sizable'
-		$Picker.MinimumSize     = New-Object System.Drawing.Size(260, 300)
+			$Picker                 = New-Object System.Windows.Forms.Form
+			$Picker.Text            = 'Select Running Process'
+			$Picker.Size            = New-Object System.Drawing.Size(340, 500)
+			$Picker.StartPosition   = 'CenterParent'
+			$Picker.FormBorderStyle = 'Sizable'
+			$Picker.MinimumSize     = New-Object System.Drawing.Size(260, 300)
 
-		$PnlTop          = New-Object System.Windows.Forms.Panel
-		$PnlTop.Dock     = 'Top'
-		$PnlTop.Height   = 32
-		$PnlTop.Padding  = New-Object System.Windows.Forms.Padding(4, 4, 4, 0)
+			$PnlTop          = New-Object System.Windows.Forms.Panel
+			$PnlTop.Dock     = 'Top'
+			$PnlTop.Height   = 32
+			$PnlTop.Padding  = New-Object System.Windows.Forms.Padding(4, 4, 4, 0)
 
-		$ProcFilter          = New-Object System.Windows.Forms.TextBox
-		$ProcFilter.Dock     = 'Fill'
-		$ProcFilter.Text     = ''
-		$PnlTop.Controls.Add($ProcFilter)
+			$ProcFilter          = New-Object System.Windows.Forms.TextBox
+			$ProcFilter.Dock     = 'Fill'
+			$ProcFilter.Text     = ''
+			$PnlTop.Controls.Add($ProcFilter)
 
-		$LvPicker               = New-Object System.Windows.Forms.ListView
-		$LvPicker.Dock          = 'Fill'
-		$LvPicker.View          = 'Details'
-		$LvPicker.FullRowSelect = $true
-		$LvPicker.HeaderStyle   = 'None'
-		$LvPicker.MultiSelect   = $false
-		$LvPicker.Columns.Add('Process', -2) | Out-Null
+			$LvPicker               = New-Object System.Windows.Forms.ListView
+			$LvPicker.Dock          = 'Fill'
+			$LvPicker.View          = 'Details'
+			$LvPicker.FullRowSelect = $true
+			$LvPicker.HeaderStyle   = 'None'
+			$LvPicker.MultiSelect   = $false
+			$LvPicker.Columns.Add('Process', -2) | Out-Null
 
-		# Collect unique process names with .exe suffix
-		$AllProcs = @(Get-Process | Select-Object -ExpandProperty Name -Unique | Sort-Object | ForEach-Object { "$($_).exe" })
+			# Collect unique process names with .exe suffix
+			$AllProcs = @(Get-Process | Select-Object -ExpandProperty Name -Unique | Sort-Object | ForEach-Object { "$($_).exe" })
 
-		$ProcFilter.Add_TextChanged({
-			$F = $ProcFilter.Text.Trim()
-			$LvPicker.Items.Clear()
-			$AllProcs | Where-Object { -not $F -or $_ -ilike "*$F*" } | ForEach-Object {
-				$LvPicker.Items.Add((New-Object System.Windows.Forms.ListViewItem($_))) | Out-Null
-			}
+			$ProcFilter.Add_TextChanged({
+					$F = $ProcFilter.Text.Trim()
+					$LvPicker.Items.Clear()
+					$AllProcs | Where-Object { -not $F -or $_ -ilike "*$F*" } | ForEach-Object {
+						$LvPicker.Items.Add((New-Object System.Windows.Forms.ListViewItem($_))) | Out-Null
+					}
+					if ($LvPicker.Items.Count -gt 0) { $LvPicker.Columns[0].Width = -2 }
+				})
+
+			# Initial population
+			$AllProcs | ForEach-Object { $LvPicker.Items.Add((New-Object System.Windows.Forms.ListViewItem($_))) | Out-Null }
 			if ($LvPicker.Items.Count -gt 0) { $LvPicker.Columns[0].Width = -2 }
+
+			$LvPicker.Add_DoubleClick({
+					if ($LvPicker.SelectedItems.Count -gt 0)
+					{ $Txt.Text = $LvPicker.SelectedItems[0].Text; $Picker.Close() }
+				})
+
+			$PnlBot         = New-Object System.Windows.Forms.Panel
+			$PnlBot.Dock    = 'Bottom'
+			$PnlBot.Height  = 35
+
+			$BtnSel          = New-Object System.Windows.Forms.Button
+			$BtnSel.Text     = 'Select'
+			$BtnSel.Size     = New-Object System.Drawing.Size(75, 25)
+			$BtnSel.Location = New-Object System.Drawing.Point(4, 5)
+			$BtnSel.Add_Click({
+					if ($LvPicker.SelectedItems.Count -gt 0)
+					{ $Txt.Text = $LvPicker.SelectedItems[0].Text; $Picker.Close() }
+				})
+			$PnlBot.Controls.Add($BtnSel)
+
+			# Fill must be added first so WinForms lays out Top/Bottom panels before expanding Fill
+			$Picker.Controls.Add($LvPicker)
+			$Picker.Controls.Add($PnlTop)
+			$Picker.Controls.Add($PnlBot)
+
+			$Picker.ShowDialog($Dlg) | Out-Null
 		})
-
-		# Initial population
-		$AllProcs | ForEach-Object { $LvPicker.Items.Add((New-Object System.Windows.Forms.ListViewItem($_))) | Out-Null }
-		if ($LvPicker.Items.Count -gt 0) { $LvPicker.Columns[0].Width = -2 }
-
-		$LvPicker.Add_DoubleClick({
-			if ($LvPicker.SelectedItems.Count -gt 0)
-			{ $Txt.Text = $LvPicker.SelectedItems[0].Text; $Picker.Close() }
-		})
-
-		$PnlBot         = New-Object System.Windows.Forms.Panel
-		$PnlBot.Dock    = 'Bottom'
-		$PnlBot.Height  = 35
-
-		$BtnSel          = New-Object System.Windows.Forms.Button
-		$BtnSel.Text     = 'Select'
-		$BtnSel.Size     = New-Object System.Drawing.Size(75, 25)
-		$BtnSel.Location = New-Object System.Drawing.Point(4, 5)
-		$BtnSel.Add_Click({
-			if ($LvPicker.SelectedItems.Count -gt 0)
-			{ $Txt.Text = $LvPicker.SelectedItems[0].Text; $Picker.Close() }
-		})
-		$PnlBot.Controls.Add($BtnSel)
-
-		# Fill must be added first so WinForms lays out Top/Bottom panels before expanding Fill
-		$Picker.Controls.Add($LvPicker)
-		$Picker.Controls.Add($PnlTop)
-		$Picker.Controls.Add($PnlBot)
-
-		$Picker.ShowDialog($Dlg) | Out-Null
-	})
 	$Dlg.Controls.Add($BtnRunning)
 
 	$BtnOK              = New-Object System.Windows.Forms.Button

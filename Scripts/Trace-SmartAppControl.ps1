@@ -51,7 +51,7 @@
 	Publisher, Sha256, Message. Pipe to Format-Table -Auto or Out-GridView.
 
 	The Decision column is a best-effort map from event Id; the Message column is authoritative.
-	The block IDs match Get-CDEvents (3077/3033 blocked, 3076/3034 audit); allow IDs (3090/3091/3092)
+	The block IDs match Get-CDEvent (3077/3033 blocked, 3076/3034 audit); allow IDs (3090/3091/3092)
 	and 3115 (allowed under audit policy) are labelled Allowed. Refine the map if a run shows an
 	unmapped Id carrying an allow message.
 #>
@@ -155,17 +155,17 @@ try
 		}
 
 		$Results.Add([PSCustomObject][Ordered]@{
-			TimeCreated    = $e.TimeCreated
-			Id             = $e.Id
-			Decision       = $Decision
-			Process        = if ($Proc) { [System.IO.Path]::GetFileName($Proc) } else { '' }
-			File           = $File
-			RequestedLevel = Get-CiLevelName $H['Requested Signing Level']
-			ValidatedLevel = Get-CiLevelName $H['Validated Signing Level']
-			Publisher      = $H['PublisherName']
-			Sha256         = if ($H['SHA256 Hash']) { $H['SHA256 Hash'] } else { $H['SHA256Hash'] }
-			Message        = $Line
-		})
+				TimeCreated    = $e.TimeCreated
+				Id             = $e.Id
+				Decision       = $Decision
+				Process        = if ($Proc) { [System.IO.Path]::GetFileName($Proc) } else { '' }
+				File           = $File
+				RequestedLevel = Get-CiLevelName $H['Requested Signing Level']
+				ValidatedLevel = Get-CiLevelName $H['Validated Signing Level']
+				Publisher      = $H['PublisherName']
+				Sha256         = if ($H['SHA256 Hash']) { $H['SHA256 Hash'] } else { $H['SHA256Hash'] }
+				Message        = $Line
+			})
 		if ($Results.Count -ge $MaxEvents) { break }
 	}
 }
