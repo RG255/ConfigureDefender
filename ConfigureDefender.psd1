@@ -40,7 +40,7 @@
 		'Get-CDSendRequestParam', 'Test-CDPipeSession', 'Start-ConfigureDefenderGUI',
 		# 2026-09-07: vendored catch-audit utilities (replaces the retired self-authored
 		# Write-CDCatchAudit/Enable-CDCatchAudit/Disable-CDCatchAudit) - Write-MyCatchAudit itself
-		# stays internal, matching VHDTools' identical exception (see Shared-Usage.psd1).
+		# stays internal.
 		'Enable-MyCatchAudit', 'Disable-MyCatchAudit', 'Get-MyCatchAuditLog', 'Show-MyCatchAuditSummary',
 		'Clear-MyCatchAuditLog', 'Invoke-MyCatchAuditTriage',
 		# 2026-09-16: archive-housekeeping pair for Clear-MyCatchAuditLog's own archives (Invoke-FileManagement

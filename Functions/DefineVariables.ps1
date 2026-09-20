@@ -91,7 +91,7 @@ $script:FunctionExportTable = @{
 	'Test-CDPipeSession'           = $true
 	# GUI launcher
 	'Start-ConfigureDefenderGUI'   = $true
-	# Vendored catch-audit utilities (2026-09-07, see Modules\Shared-Usage.psd1) - Write-MyCatchAudit
+	# Vendored catch-audit utilities (2026-09-07) - Write-MyCatchAudit
 	# is called only from inside a Catch block, never by a user, so it must be explicit here: this
 	# table's own default for an UNLISTED name is $true (exported) - the opposite of a flat
 	# FunctionsToExport list, where omission means hidden. Enable/Disable-MyCatchAudit,

@@ -168,8 +168,8 @@ try
 	$VarDefFiles = @($PSD1Data.PrivateData.ModuleVars[''].Values)
 	$Exclude     = [regex]'(?i)DefineVariables|Define-CustomXML|\.zip$'
 
-	# Dot-source and export common (cross-platform) functions. Vendored CommonScripts copies (see
-	# Shared-Usage.psd1) sit in their own 'vendored' subfolder (changed 2026-09-13) for filesystem
+	# Dot-source and export common (cross-platform) functions. Vendored shared-utility copies
+	# sit in their own 'vendored' subfolder (changed 2026-09-13) for filesystem
 	# visibility - unioned in here so they still go through the same export-table logic below.
 	$CommonFunctions = @(Get-ChildItem -Path (Join-Path -Path $ModuleScriptRoot -ChildPath 'Functions\*.ps1') -ErrorAction Stop) +
 		@(Get-ChildItem -Path (Join-Path -Path $ModuleScriptRoot -ChildPath 'Functions\vendored\*.ps1') -ErrorAction SilentlyContinue) |
