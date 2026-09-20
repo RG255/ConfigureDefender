@@ -16,14 +16,26 @@ Function Close-CDPipeSession
 	[CmdletBinding()]
 	param()
 
-	if ($script:CDPipeInfo)
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	# Teardown/cleanup helper - never throws (matches the Stop-PipeSession/Close-VHDPipeSession
+	# convention for Finally-called teardown code), just catch-audits so a failure here is still
+	# tracked instead of being silently swallowed.
+	try
 	{
-		if (Test-PipeSession -PipeInfo $script:CDPipeInfo)
+		if ($script:CDPipeInfo)
 		{
-			Stop-PipeSession -SendRequestParams $script:CDSendRequestParams `
-				-PipeInfo $script:CDPipeInfo
+			if (Test-PipeSession -PipeInfo $script:CDPipeInfo)
+			{
+				Stop-PipeSession -SendRequestParams $script:CDSendRequestParams `
+					-PipeInfo $script:CDPipeInfo
+			}
+			$script:CDPipeInfo          = $null
+			$script:CDSendRequestParams = $null
 		}
-		$script:CDPipeInfo          = $null
-		$script:CDSendRequestParams = $null
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Close-CDPipeSession: closing elevated NamedPipe session' -ErrorRecord $_
 	}
 }

@@ -104,6 +104,17 @@ $script:FunctionExportTable = @{
 	'Write-MyCatchAudit'              = $false
 	'Get-MyCatchAuditPersistPath'     = $false
 	'Show-MyCatchAuditPendingNotice'  = $false
+	# 2026-09-16: Invoke-FileManagement (plumbing behind Clear-MyCatchAuditArchive) stays internal, same
+	# explicit-false treatment as Write-MyCatchAudit above; Clear-MyCatchAuditArchive itself is meant to
+	# be typed at the console, so it is deliberately left OUT of this table (default $true).
+	'Invoke-FileManagement'          = $false
+	# 2026-09-16: function-trace facility, full-module rollout - internal-only members need the same
+	# explicit-false treatment as Write-MyCatchAudit above; Enable-/Disable-/Clear-MyFunctionTraceLog/
+	# Clear-MyFunctionTraceArchive are meant to be typed at the console, so they default to exported by
+	# NOT being listed here.
+	'Write-MyFunctionTrace'         = $false
+	'Get-MyFunctionTracePath'       = $false
+	'Format-MyFunctionTraceLine'    = $false
 }
 
 #

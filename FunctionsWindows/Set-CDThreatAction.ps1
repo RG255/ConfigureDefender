@@ -28,19 +28,29 @@ Function Set-CDThreatAction
 		[string]$Action
 	)
 
-	$PropertyMap = @{
-		Severe   = 'SevereThreatDefaultAction'
-		High     = 'HighThreatDefaultAction'
-		Moderate = 'ModerateThreatDefaultAction'
-		Low      = 'LowThreatDefaultAction'
-		Unknown  = 'UnknownThreatDefaultAction'
-	}
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
-	# Set-MpPreference's -XxxThreatDefaultAction parameters are a real enum keyed by NAME
-	# (Clean, Quarantine, Remove, Allow, UserDefined, NoAction, Block, None) - $Action already
-	# matches those names via ValidateSet above, so pass it straight through. A prior numeric
-	# translation here (Clean=0, NoAction=9, ...) was wrong - the enum does not accept those
-	# integers, so every call failed with a ParameterArgumentTransformationError.
-	$Params = @{ $PropertyMap[$Level] = $Action }
-	Set-MpPreference @Params
+	try
+	{
+		$PropertyMap = @{
+			Severe   = 'SevereThreatDefaultAction'
+			High     = 'HighThreatDefaultAction'
+			Moderate = 'ModerateThreatDefaultAction'
+			Low      = 'LowThreatDefaultAction'
+			Unknown  = 'UnknownThreatDefaultAction'
+		}
+
+		# Set-MpPreference's -XxxThreatDefaultAction parameters are a real enum keyed by NAME
+		# (Clean, Quarantine, Remove, Allow, UserDefined, NoAction, Block, None) - $Action already
+		# matches those names via ValidateSet above, so pass it straight through. A prior numeric
+		# translation here (Clean=0, NoAction=9, ...) was wrong - the enum does not accept those
+		# integers, so every call failed with a ParameterArgumentTransformationError.
+		$Params = @{ $PropertyMap[$Level] = $Action }
+		Set-MpPreference @Params
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDThreatAction: writing threat-action preference' -ErrorRecord $_
+		throw
+	}
 }

@@ -11,7 +11,17 @@ Function Get-CDExclusionExtension
 	[CmdletBinding()]
 	param([string]$Like)
 
-	$List = (Get-MpPreference).ExclusionExtension
-	if ($Like) { $List = $List | Where-Object { $_ -ilike "*$Like*" } }
-	$List
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
+	{
+		$List = (Get-MpPreference).ExclusionExtension
+		if ($Like) { $List = $List | Where-Object { $_ -ilike "*$Like*" } }
+		$List
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Get-CDExclusionExtension: querying extension exclusion list' -ErrorRecord $_
+		throw
+	}
 }

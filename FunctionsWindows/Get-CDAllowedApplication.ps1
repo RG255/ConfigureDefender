@@ -27,16 +27,26 @@ Function Get-CDAllowedApplication
 		[switch]$CheckMissing
 	)
 
-	$List = (Get-MpPreference).ControlledFolderAccessAllowedApplications
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
-	if ($CheckMissing)
+	try
 	{
-		$List = $List | Where-Object { $_ -and -not (Test-Path -Path $_) }
-	}
-	elseif ($Like)
-	{
-		$List = $List | Where-Object { $_ -ilike "*$Like*" }
-	}
+		$List = (Get-MpPreference).ControlledFolderAccessAllowedApplications
 
-	$List
+		if ($CheckMissing)
+		{
+			$List = $List | Where-Object { $_ -and -not (Test-Path -Path $_) }
+		}
+		elseif ($Like)
+		{
+			$List = $List | Where-Object { $_ -ilike "*$Like*" }
+		}
+
+		$List
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Get-CDAllowedApplication: querying allowed-application list' -ErrorRecord $_
+		throw
+	}
 }

@@ -32,12 +32,22 @@
 	[CmdletBinding()]
 	Param ([Switch]$EnableCatchAudit)
 
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
 	If ($EnableCatchAudit)
 	{
 		$null = Enable-MyCatchAudit
 		$env:CDCatchAuditAutoDisable = '1'
 	}
 
-	$ModuleBase = $MyInvocation.MyCommand.Module.ModuleBase
-	& "$ModuleBase\Scripts\ConfigureDefenderGUI.ps1"
+	try
+	{
+		$ModuleBase = $MyInvocation.MyCommand.Module.ModuleBase
+		& "$ModuleBase\Scripts\ConfigureDefenderGUI.ps1"
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Start-ConfigureDefenderGUI: launching GUI script' -ErrorRecord $_
+		throw
+	}
 }

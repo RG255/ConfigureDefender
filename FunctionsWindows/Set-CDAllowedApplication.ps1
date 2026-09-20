@@ -39,20 +39,30 @@ Function Set-CDAllowedApplication
 		[switch]$RemoveMissing
 	)
 
-	switch ($PSCmdlet.ParameterSetName)
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
 	{
-		'Add'
-		{ Add-MpPreference    -ControlledFolderAccessAllowedApplications $Path }
-		'Remove'
-		{ Remove-MpPreference -ControlledFolderAccessAllowedApplications $Path }
-		'RemoveMissing'
+		switch ($PSCmdlet.ParameterSetName)
 		{
-			$List = (Get-MpPreference).ControlledFolderAccessAllowedApplications
-			foreach ($Item in $List)
+			'Add'
+			{ Add-MpPreference    -ControlledFolderAccessAllowedApplications $Path }
+			'Remove'
+			{ Remove-MpPreference -ControlledFolderAccessAllowedApplications $Path }
+			'RemoveMissing'
 			{
-				if ($Item -and -not (Test-Path -Path $Item))
-				{ Remove-MpPreference -ControlledFolderAccessAllowedApplications $Item }
+				$List = (Get-MpPreference).ControlledFolderAccessAllowedApplications
+				foreach ($Item in $List)
+				{
+					if ($Item -and -not (Test-Path -Path $Item))
+					{ Remove-MpPreference -ControlledFolderAccessAllowedApplications $Item }
+				}
 			}
 		}
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDAllowedApplication: writing allowed-application entry' -ErrorRecord $_
+		throw
 	}
 }

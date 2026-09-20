@@ -69,7 +69,9 @@ Describe 'Module Import' {
 			'Set-CDControlledFolderAccess', 'Set-CDNetworkProtection', 'Set-CDCIVerbose',
 			'Open-CDPipeSession', 'Close-CDPipeSession', 'Start-ConfigureDefenderGUI', 'Test-CDPipeSession',
 			'Enable-MyCatchAudit', 'Disable-MyCatchAudit', 'Get-MyCatchAuditLog', 'Show-MyCatchAuditSummary',
-			'Clear-MyCatchAuditLog', 'Invoke-MyCatchAuditTriage'
+			'Clear-MyCatchAuditLog', 'Invoke-MyCatchAuditTriage',
+			'Clear-MyCatchAuditArchive', # 2026-09-16: archive-housekeeping addition (Invoke-FileManagement stays internal)
+			'Enable-MyFunctionTrace', 'Disable-MyFunctionTrace', 'Clear-MyFunctionTraceLog', 'Clear-MyFunctionTraceArchive' # 2026-09-16: function-trace facility rollout
 		)
 		$Exported = (Get-Module -Name ConfigureDefender).ExportedFunctions.Keys | Sort-Object
 		Compare-Object -ReferenceObject ($Expected | Sort-Object) -DifferenceObject $Exported |

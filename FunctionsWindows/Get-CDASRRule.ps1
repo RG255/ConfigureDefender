@@ -19,26 +19,36 @@ Function Get-CDASRRule
 	[CmdletBinding()]
 	param()
 
-	$Pref    = Get-MpPreference
-	$Ids     = $Pref.AttackSurfaceReductionRules_Ids
-	$Actions = $Pref.AttackSurfaceReductionRules_Actions
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
-	foreach ($GUID in $script:ASRRules.Keys)
+	try
 	{
-		$Action = 'Not Set'
-		if ($Ids)
+		$Pref    = Get-MpPreference
+		$Ids     = $Pref.AttackSurfaceReductionRules_Ids
+		$Actions = $Pref.AttackSurfaceReductionRules_Actions
+
+		foreach ($GUID in $script:ASRRules.Keys)
 		{
-			$Idx = [array]::IndexOf([string[]]($Ids | ForEach-Object { $_.ToLower() }), $GUID.ToLower())
-			if ($Idx -ge 0)
+			$Action = 'Not Set'
+			if ($Ids)
 			{
-				$ActionVal = [int]$Actions[$Idx]
-				$Action    = if ($script:ASROptions.Contains($ActionVal)) { $script:ASROptions[$ActionVal] } else { "Unknown ($ActionVal)" }
+				$Idx = [array]::IndexOf([string[]]($Ids | ForEach-Object { $_.ToLower() }), $GUID.ToLower())
+				if ($Idx -ge 0)
+				{
+					$ActionVal = [int]$Actions[$Idx]
+					$Action    = if ($script:ASROptions.Contains($ActionVal)) { $script:ASROptions[$ActionVal] } else { "Unknown ($ActionVal)" }
+				}
+			}
+			[PSCustomObject][Ordered]@{
+				GUID        = $GUID
+				Action      = $Action
+				Description = $script:ASRRules[$GUID]
 			}
 		}
-		[PSCustomObject][Ordered]@{
-			GUID        = $GUID
-			Action      = $Action
-			Description = $script:ASRRules[$GUID]
-		}
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Get-CDASRRule: querying/mapping ASR rule state' -ErrorRecord $_
+		throw
 	}
 }

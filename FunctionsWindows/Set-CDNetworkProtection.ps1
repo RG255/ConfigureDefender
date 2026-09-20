@@ -33,10 +33,20 @@ Function Set-CDNetworkProtection
 		[switch]$Disable
 	)
 
-	switch ($PSCmdlet.ParameterSetName)
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
 	{
-		'Enable'  { Set-MpPreference -EnableNetworkProtection 1 }
-		'Audit'   { Set-MpPreference -EnableNetworkProtection 2 }
-		'Disable' { Set-MpPreference -EnableNetworkProtection 0 }
+		switch ($PSCmdlet.ParameterSetName)
+		{
+			'Enable'  { Set-MpPreference -EnableNetworkProtection 1 }
+			'Audit'   { Set-MpPreference -EnableNetworkProtection 2 }
+			'Disable' { Set-MpPreference -EnableNetworkProtection 0 }
+		}
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDNetworkProtection: writing Network Protection state' -ErrorRecord $_
+		throw
 	}
 }

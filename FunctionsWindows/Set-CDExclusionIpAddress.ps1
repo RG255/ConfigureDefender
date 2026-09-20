@@ -33,9 +33,19 @@ Function Set-CDExclusionIpAddress
 		[switch]$Remove
 	)
 
-	switch ($PSCmdlet.ParameterSetName)
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
 	{
-		'Add'    { Add-MpPreference    -ExclusionIpAddress $IpAddress }
-		'Remove' { Remove-MpPreference -ExclusionIpAddress $IpAddress }
+		switch ($PSCmdlet.ParameterSetName)
+		{
+			'Add'    { Add-MpPreference    -ExclusionIpAddress $IpAddress }
+			'Remove' { Remove-MpPreference -ExclusionIpAddress $IpAddress }
+		}
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDExclusionIpAddress: writing IP-address exclusion' -ErrorRecord $_
+		throw
 	}
 }

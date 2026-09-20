@@ -33,9 +33,19 @@ Function Set-CDExclusionExtension
 		[switch]$Remove
 	)
 
-	switch ($PSCmdlet.ParameterSetName)
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
 	{
-		'Add'    { Add-MpPreference    -ExclusionExtension $Extension }
-		'Remove' { Remove-MpPreference -ExclusionExtension $Extension }
+		switch ($PSCmdlet.ParameterSetName)
+		{
+			'Add'    { Add-MpPreference    -ExclusionExtension $Extension }
+			'Remove' { Remove-MpPreference -ExclusionExtension $Extension }
+		}
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDExclusionExtension: writing extension exclusion' -ErrorRecord $_
+		throw
 	}
 }

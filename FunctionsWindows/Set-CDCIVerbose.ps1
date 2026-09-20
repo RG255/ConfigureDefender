@@ -44,20 +44,31 @@ Function Set-CDCIVerbose
 		[int]$WatchdogMinutes = 0
 	)
 
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
 	$Channel      = 'Microsoft-Windows-CodeIntegrity/Verbose'
 	$TaskName     = 'ConfigureDefender-SACVerboseWatchdog'
 	$DefaultBytes = 1052672
 
 	if ($Disable)
 	{
-		# Critical: disable the channel (its own SaveChanges).
-		$Log = Get-WinEvent -ListLog $Channel -ErrorAction Stop
-		$Log.IsEnabled = $false
-		$Log.SaveChanges()
+		# Critical: disable the channel (its own SaveChanges). Genuinely fatal to the caller if it
+		# fails, so catch-audit for visibility and rethrow to preserve the existing fail-loud contract.
+		try
+		{
+			$Log = Get-WinEvent -ListLog $Channel -ErrorAction Stop
+			$Log.IsEnabled = $false
+			$Log.SaveChanges()
+		}
+		catch
+		{
+			Write-MyCatchAudit -Source 'Set-CDCIVerbose (-Disable): disable channel' -ErrorRecord $_
+			throw
+		}
 		# Best-effort: restore the default cap / mode while disabled (separate saves).
 		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.MaximumSizeInBytes = $DefaultBytes; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (-Disable): restore default MaximumSizeInBytes' -ErrorRecord $_ }
 		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Retain; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (-Disable): restore default LogMode' -ErrorRecord $_ }
-		Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+		try { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (-Disable): unregister watchdog task' -ErrorRecord $_ }
 	}
 	else
 	{
@@ -68,27 +79,53 @@ Function Set-CDCIVerbose
 		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.MaximumSizeInBytes = 134217728; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): widen MaximumSizeInBytes to 128MB' -ErrorRecord $_ }
 		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Circular; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): set LogMode Circular' -ErrorRecord $_ }
 
-		# Critical: enable the channel (its own SaveChanges).
-		$On = Get-WinEvent -ListLog $Channel -ErrorAction Stop
-		$On.IsEnabled = $true
-		$On.SaveChanges()
+		# Critical: enable the channel (its own SaveChanges). Same fail-loud-but-audited treatment as
+		# the -Disable branch above.
+		try
+		{
+			$On = Get-WinEvent -ListLog $Channel -ErrorAction Stop
+			$On.IsEnabled = $true
+			$On.SaveChanges()
+		}
+		catch
+		{
+			Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): enable channel' -ErrorRecord $_
+			throw
+		}
 
 		# (Re)register the watchdog: AtStartup always, plus a timed trigger when requested. The action
-		# disables the channel again and deletes the task; it runs even if the GUI is killed.
-		Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
-		$WdCmd = "wevtutil sl '$Channel' /e:false; schtasks /delete /tn '$TaskName' /f"
-		$Act   = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -WindowStyle Hidden -Command "{0}"' -f $WdCmd)
-		$Trg   = @(New-ScheduledTaskTrigger -AtStartup)
-		if ($WatchdogMinutes -gt 0) { $Trg += New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes($WatchdogMinutes) }
-		$Prn   = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
-		$null  = Register-ScheduledTask -TaskName $TaskName -Action $Act -Trigger $Trg -Principal $Prn -Force
+		# disables the channel again and deletes the task; it runs even if the GUI is killed. A failure
+		# here means the channel is on with NO safety net, so this is also fail-loud-but-audited.
+		try
+		{
+			Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+			$WdCmd = "wevtutil sl '$Channel' /e:false; schtasks /delete /tn '$TaskName' /f"
+			$Act   = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -WindowStyle Hidden -Command "{0}"' -f $WdCmd)
+			$Trg   = @(New-ScheduledTaskTrigger -AtStartup)
+			if ($WatchdogMinutes -gt 0) { $Trg += New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes($WatchdogMinutes) }
+			$Prn   = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+			$null  = Register-ScheduledTask -TaskName $TaskName -Action $Act -Trigger $Trg -Principal $Prn -Force
+		}
+		catch
+		{
+			Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): register watchdog scheduled task' -ErrorRecord $_
+			throw
+		}
 	}
 
-	$Now = Get-WinEvent -ListLog $Channel -ErrorAction SilentlyContinue
-	[PSCustomObject]@{
-		Channel   = $Channel
-		Enabled   = [bool]($Now.IsEnabled)
-		MaxSizeMB = if ($Now) { [math]::Round($Now.MaximumSizeInBytes / 1MB, 0) } else { 0 }
-		Watchdog  = if ($Disable) { 'removed' } elseif ($WatchdogMinutes -gt 0) { "reboot + $WatchdogMinutes min" } else { 'reboot only' }
+	try
+	{
+		$Now = Get-WinEvent -ListLog $Channel -ErrorAction SilentlyContinue
+		[PSCustomObject]@{
+			Channel   = $Channel
+			Enabled   = [bool]($Now.IsEnabled)
+			MaxSizeMB = if ($Now) { [math]::Round($Now.MaximumSizeInBytes / 1MB, 0) } else { 0 }
+			Watchdog  = if ($Disable) { 'removed' } elseif ($WatchdogMinutes -gt 0) { "reboot + $WatchdogMinutes min" } else { 'reboot only' }
+		}
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDCIVerbose: building result object' -ErrorRecord $_
+		throw
 	}
 }

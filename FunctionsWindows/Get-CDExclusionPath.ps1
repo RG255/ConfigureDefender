@@ -11,7 +11,17 @@ Function Get-CDExclusionPath
 	[CmdletBinding()]
 	param([string]$Like)
 
-	$List = (Get-MpPreference).ExclusionPath
-	if ($Like) { $List = $List | Where-Object { $_ -ilike "*$Like*" } }
-	$List
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
+	{
+		$List = (Get-MpPreference).ExclusionPath
+		if ($Like) { $List = $List | Where-Object { $_ -ilike "*$Like*" } }
+		$List
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Get-CDExclusionPath: querying path exclusion list' -ErrorRecord $_
+		throw
+	}
 }

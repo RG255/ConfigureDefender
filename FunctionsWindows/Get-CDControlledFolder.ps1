@@ -17,10 +17,20 @@ Function Get-CDControlledFolder
 		[string]$Like
 	)
 
-	$List = (Get-MpPreference).ControlledFolderAccessProtectedFolders
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
-	if ($Like)
-	{ $List = $List | Where-Object { $_ -ilike "*$Like*" } }
+	try
+	{
+		$List = (Get-MpPreference).ControlledFolderAccessProtectedFolders
 
-	$List
+		if ($Like)
+		{ $List = $List | Where-Object { $_ -ilike "*$Like*" } }
+
+		$List
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Get-CDControlledFolder: querying protected folder list' -ErrorRecord $_
+		throw
+	}
 }

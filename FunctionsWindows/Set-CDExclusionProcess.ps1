@@ -34,9 +34,19 @@ Function Set-CDExclusionProcess
 		[switch]$Remove
 	)
 
-	switch ($PSCmdlet.ParameterSetName)
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
 	{
-		'Add'    { Add-MpPreference    -ExclusionProcess $Process }
-		'Remove' { Remove-MpPreference -ExclusionProcess $Process }
+		switch ($PSCmdlet.ParameterSetName)
+		{
+			'Add'    { Add-MpPreference    -ExclusionProcess $Process }
+			'Remove' { Remove-MpPreference -ExclusionProcess $Process }
+		}
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDExclusionProcess: writing process exclusion' -ErrorRecord $_
+		throw
 	}
 }

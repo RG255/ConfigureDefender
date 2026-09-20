@@ -11,7 +11,17 @@ Function Get-CDExclusionIpAddress
 	[CmdletBinding()]
 	param([string]$Like)
 
-	$List = (Get-MpPreference).ExclusionIpAddress
-	if ($Like) { $List = $List | Where-Object { $_ -ilike "*$Like*" } }
-	$List
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
+	{
+		$List = (Get-MpPreference).ExclusionIpAddress
+		if ($Like) { $List = $List | Where-Object { $_ -ilike "*$Like*" } }
+		$List
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Get-CDExclusionIpAddress: querying IP-address exclusion list' -ErrorRecord $_
+		throw
+	}
 }

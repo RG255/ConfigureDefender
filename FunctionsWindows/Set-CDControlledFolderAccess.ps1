@@ -33,10 +33,20 @@ Function Set-CDControlledFolderAccess
 		[switch]$Disable
 	)
 
-	switch ($PSCmdlet.ParameterSetName)
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
 	{
-		'Enable'  { Set-MpPreference -EnableControlledFolderAccess 1 }
-		'Audit'   { Set-MpPreference -EnableControlledFolderAccess 2 }
-		'Disable' { Set-MpPreference -EnableControlledFolderAccess 0 }
+		switch ($PSCmdlet.ParameterSetName)
+		{
+			'Enable'  { Set-MpPreference -EnableControlledFolderAccess 1 }
+			'Audit'   { Set-MpPreference -EnableControlledFolderAccess 2 }
+			'Disable' { Set-MpPreference -EnableControlledFolderAccess 0 }
+		}
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDControlledFolderAccess: writing Controlled Folder Access state' -ErrorRecord $_
+		throw
 	}
 }

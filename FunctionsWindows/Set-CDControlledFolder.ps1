@@ -32,9 +32,19 @@ Function Set-CDControlledFolder
 		[switch]$Remove
 	)
 
-	switch ($PSCmdlet.ParameterSetName)
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
 	{
-		'Add'    { Add-MpPreference    -ControlledFolderAccessProtectedFolders $Folder }
-		'Remove' { Remove-MpPreference -ControlledFolderAccessProtectedFolders $Folder }
+		switch ($PSCmdlet.ParameterSetName)
+		{
+			'Add'    { Add-MpPreference    -ControlledFolderAccessProtectedFolders $Folder }
+			'Remove' { Remove-MpPreference -ControlledFolderAccessProtectedFolders $Folder }
+		}
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDControlledFolder: writing protected-folder entry' -ErrorRecord $_
+		throw
 	}
 }

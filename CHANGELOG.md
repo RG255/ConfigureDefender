@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [0.4] - 2026-09-12
 
+### Added (2026-09-20 follow-up)
+
+- Function-trace facility (`Enable-MyFunctionTrace -Option 1-3`, `Disable-MyFunctionTrace`,
+  `Clear-MyFunctionTraceLog`, `Clear-MyFunctionTraceArchive`), vendored. Per-window trace files under
+  `C:\ProgramData\FunctionTrace`; `-Option` is required.
+- Catch-audit housekeeping (`Clear-MyCatchAuditArchive`).
+- Now requires NamedPipe 0.15 (was 0.14).
+
 ### Changed (BREAKING)
 
 - 13 exported `Get-CD*` accessors renamed to singular nouns, matching their existing `Set-CD*`

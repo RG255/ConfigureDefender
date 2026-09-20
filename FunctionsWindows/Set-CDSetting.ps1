@@ -29,8 +29,18 @@ Function Set-CDSetting
 		$Value
 	)
 
-	$Params = @{ $Name = $Value }
-	Set-MpPreference @Params
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
+	{
+		$Params = @{ $Name = $Value }
+		Set-MpPreference @Params
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDSetting: writing Defender preference' -ErrorRecord $_
+		throw
+	}
 
 	try
 	{

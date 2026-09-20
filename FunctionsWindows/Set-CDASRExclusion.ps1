@@ -33,9 +33,19 @@ Function Set-CDASRExclusion
 		[switch]$Remove
 	)
 
-	switch ($PSCmdlet.ParameterSetName)
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
 	{
-		'Add'    { Add-MpPreference    -AttackSurfaceReductionOnlyExclusions $Path }
-		'Remove' { Remove-MpPreference -AttackSurfaceReductionOnlyExclusions $Path }
+		switch ($PSCmdlet.ParameterSetName)
+		{
+			'Add'    { Add-MpPreference    -AttackSurfaceReductionOnlyExclusions $Path }
+			'Remove' { Remove-MpPreference -AttackSurfaceReductionOnlyExclusions $Path }
+		}
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDASRExclusion: writing ASR exclusion' -ErrorRecord $_
+		throw
 	}
 }

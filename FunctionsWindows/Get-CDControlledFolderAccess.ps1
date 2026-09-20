@@ -13,19 +13,29 @@ Function Get-CDControlledFolderAccess
 	[CmdletBinding()]
 	param()
 
-	$Val = [int](Get-MpPreference).EnableControlledFolderAccess
-	$Description = switch ($Val)
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
 	{
-		0 { 'Disabled' }
-		1 { 'Enabled' }
-		2 { 'Audit Mode' }
-		3 { 'Block Disk Modification' }
-		4 { 'Audit Disk Modification' }
-		default { "Unknown ($Val)" }
+		$Val = [int](Get-MpPreference).EnableControlledFolderAccess
+		$Description = switch ($Val)
+		{
+			0 { 'Disabled' }
+			1 { 'Enabled' }
+			2 { 'Audit Mode' }
+			3 { 'Block Disk Modification' }
+			4 { 'Audit Disk Modification' }
+			default { "Unknown ($Val)" }
+		}
+		[PSCustomObject][Ordered]@{
+			Value       = $Val
+			Enabled     = ($Val -eq 1 -or $Val -eq 3)
+			Description = $Description
+		}
 	}
-	[PSCustomObject][Ordered]@{
-		Value       = $Val
-		Enabled     = ($Val -eq 1 -or $Val -eq 3)
-		Description = $Description
+	catch
+	{
+		Write-MyCatchAudit -Source 'Get-CDControlledFolderAccess: querying Controlled Folder Access state' -ErrorRecord $_
+		throw
 	}
 }

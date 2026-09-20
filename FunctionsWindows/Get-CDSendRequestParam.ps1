@@ -13,5 +13,7 @@ Function Get-CDSendRequestParam
 
 		Returns $null if no session has been opened yet.
 	#>
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
 	$script:CDSendRequestParams
 }

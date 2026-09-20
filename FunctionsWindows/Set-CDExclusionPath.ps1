@@ -40,9 +40,19 @@ Function Set-CDExclusionPath
 		[switch]$Remove
 	)
 
-	switch ($PSCmdlet.ParameterSetName)
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
 	{
-		'Add'    { Add-MpPreference    -ExclusionPath $Path }
-		'Remove' { Remove-MpPreference -ExclusionPath $Path }
+		switch ($PSCmdlet.ParameterSetName)
+		{
+			'Add'    { Add-MpPreference    -ExclusionPath $Path }
+			'Remove' { Remove-MpPreference -ExclusionPath $Path }
+		}
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDExclusionPath: writing path exclusion' -ErrorRecord $_
+		throw
 	}
 }

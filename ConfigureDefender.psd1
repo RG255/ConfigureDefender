@@ -18,7 +18,7 @@
 	RequiredModules   = @(
 		@{
 			ModuleName      = 'NamedPipe'
-			RequiredVersion = '0.14'
+			RequiredVersion = '0.15'
 		}
 	)
 	# Explicit exports so PowerShell can AUTO-LOAD the module on first use of any of
@@ -42,7 +42,15 @@
 		# Write-CDCatchAudit/Enable-CDCatchAudit/Disable-CDCatchAudit) - Write-MyCatchAudit itself
 		# stays internal, matching VHDTools' identical exception (see Shared-Usage.psd1).
 		'Enable-MyCatchAudit', 'Disable-MyCatchAudit', 'Get-MyCatchAuditLog', 'Show-MyCatchAuditSummary',
-		'Clear-MyCatchAuditLog', 'Invoke-MyCatchAuditTriage'
+		'Clear-MyCatchAuditLog', 'Invoke-MyCatchAuditTriage',
+		# 2026-09-16: archive-housekeeping pair for Clear-MyCatchAuditLog's own archives (Invoke-FileManagement
+		# itself stays internal, same treatment as every other module).
+		'Clear-MyCatchAuditArchive',
+		# 2026-09-16: function-trace facility, full-module rollout - see Functions\DefineVariables.ps1
+		# for the internal-only entries (Write-MyFunctionTrace/Get-MyFunctionTracePath/
+		# Format-MyFunctionTraceLine/Invoke-FileManagement) this table's own default-exported
+		# convention requires explicit '= $false' for.
+		'Enable-MyFunctionTrace', 'Disable-MyFunctionTrace', 'Clear-MyFunctionTraceLog', 'Clear-MyFunctionTraceArchive'
 	)
 	CmdletsToExport   = @()
 	# '*' not @(): the psm1 exports its variable vocabulary via Export-ModuleMember

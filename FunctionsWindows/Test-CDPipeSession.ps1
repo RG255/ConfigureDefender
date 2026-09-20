@@ -40,6 +40,16 @@ Function Test-CDPipeSession
 
 		See project_namedpipe_health_pipe_race memory for the full investigation trail.
 	#>
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
 	if (-not $script:CDPipeInfo) { return $false }
-	Test-PipeSession -PipeInfo $script:CDPipeInfo.'PipeInfo'
+	try
+	{
+		Test-PipeSession -PipeInfo $script:CDPipeInfo.'PipeInfo'
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Test-CDPipeSession: checking pipe session health' -ErrorRecord $_
+		$false
+	}
 }

@@ -21,10 +21,20 @@ Function Get-CDExclusionProcess
 		[string]$Like
 	)
 
-	$List = (Get-MpPreference).ExclusionProcess
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
-	if ($Like)
-	{ $List = $List | Where-Object { $_ -ilike "*$Like*" } }
+	try
+	{
+		$List = (Get-MpPreference).ExclusionProcess
 
-	$List
+		if ($Like)
+		{ $List = $List | Where-Object { $_ -ilike "*$Like*" } }
+
+		$List
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Get-CDExclusionProcess: querying process exclusion list' -ErrorRecord $_
+		throw
+	}
 }

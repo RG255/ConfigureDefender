@@ -57,33 +57,43 @@ Function Set-CDASRRule
 		[switch]$RemoveAll
 	)
 
-	switch ($PSCmdlet.ParameterSetName)
+	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
+
+	try
 	{
-		{ $_ -in 'Add', 'Change' }
+		switch ($PSCmdlet.ParameterSetName)
 		{
-			Add-MpPreference -AttackSurfaceReductionRules_Ids $GUID `
-				-AttackSurfaceReductionRules_Actions $script:ASROptions[$Action]
-		}
-		'AddAll'
-		{
-			foreach ($RuleGUID in $script:ASRRules.Keys)
+			{ $_ -in 'Add', 'Change' }
 			{
-				Add-MpPreference -AttackSurfaceReductionRules_Ids $RuleGUID `
+				Add-MpPreference -AttackSurfaceReductionRules_Ids $GUID `
 					-AttackSurfaceReductionRules_Actions $script:ASROptions[$Action]
 			}
-		}
-		'Remove'
-		{
-			Remove-MpPreference -AttackSurfaceReductionRules_Ids $RemoveGUID
-		}
-		'RemoveAll'
-		{
-			$CurrentIDs = (Get-MpPreference).AttackSurfaceReductionRules_Ids
-			if ($CurrentIDs)
+			'AddAll'
 			{
-				foreach ($RuleGUID in $CurrentIDs)
-				{ Remove-MpPreference -AttackSurfaceReductionRules_Ids $RuleGUID }
+				foreach ($RuleGUID in $script:ASRRules.Keys)
+				{
+					Add-MpPreference -AttackSurfaceReductionRules_Ids $RuleGUID `
+						-AttackSurfaceReductionRules_Actions $script:ASROptions[$Action]
+				}
+			}
+			'Remove'
+			{
+				Remove-MpPreference -AttackSurfaceReductionRules_Ids $RemoveGUID
+			}
+			'RemoveAll'
+			{
+				$CurrentIDs = (Get-MpPreference).AttackSurfaceReductionRules_Ids
+				if ($CurrentIDs)
+				{
+					foreach ($RuleGUID in $CurrentIDs)
+					{ Remove-MpPreference -AttackSurfaceReductionRules_Ids $RuleGUID }
+				}
 			}
 		}
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'Set-CDASRRule: writing ASR rule state' -ErrorRecord $_
+		throw
 	}
 }
