@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file.
   `C:\ProgramData\FunctionTrace`; `-Option` is required.
 - Catch-audit housekeeping (`Clear-MyCatchAuditArchive`).
 - Now requires NamedPipe 0.15 (was 0.14).
+- `Protect-MyFunctionTraceFolder` (2026-09-21): locks the trace-log folder so other local users cannot read your
+  logs (`-Check` reports without elevation). `Enable-MyFunctionTrace` warns once when the folder is not locked
+  down; `$env:MyFunctionTraceNoAclWarning = '1'` silences it.
 
 ### Removed (2026-09-21)
 

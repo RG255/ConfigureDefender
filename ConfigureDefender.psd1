@@ -50,7 +50,7 @@
 		# for the internal-only entries (Write-MyFunctionTrace/Get-MyFunctionTracePath/
 		# Format-MyFunctionTraceLine/Invoke-FileManagement) this table's own default-exported
 		# convention requires explicit '= $false' for.
-		'Enable-MyFunctionTrace', 'Disable-MyFunctionTrace', 'Clear-MyFunctionTraceLog', 'Clear-MyFunctionTraceArchive'
+		'Enable-MyFunctionTrace', 'Disable-MyFunctionTrace', 'Clear-MyFunctionTraceLog', 'Clear-MyFunctionTraceArchive', 'Protect-MyFunctionTraceFolder'
 	)
 	CmdletsToExport   = @()
 	# '*' not @(): the psm1 exports its variable vocabulary via Export-ModuleMember

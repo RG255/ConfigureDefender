@@ -71,7 +71,8 @@ Describe 'Module Import' {
 			'Enable-MyCatchAudit', 'Disable-MyCatchAudit', 'Get-MyCatchAuditLog', 'Show-MyCatchAuditSummary',
 			'Clear-MyCatchAuditLog', 'Invoke-MyCatchAuditTriage',
 			'Clear-MyCatchAuditArchive', # 2026-09-16: archive-housekeeping addition (Invoke-FileManagement stays internal)
-			'Enable-MyFunctionTrace', 'Disable-MyFunctionTrace', 'Clear-MyFunctionTraceLog', 'Clear-MyFunctionTraceArchive' # 2026-09-16: function-trace facility rollout
+			'Enable-MyFunctionTrace', 'Disable-MyFunctionTrace', 'Clear-MyFunctionTraceLog', 'Clear-MyFunctionTraceArchive', # 2026-09-16: function-trace facility rollout
+			'Protect-MyFunctionTraceFolder' # 2026-09-21: locks the trace folder ACL (or -Check); Enable-MyFunctionTrace warns when it is loose
 		)
 		$Exported = (Get-Module -Name ConfigureDefender).ExportedFunctions.Keys | Sort-Object
 		Compare-Object -ReferenceObject ($Expected | Sort-Object) -DifferenceObject $Exported |
