@@ -76,7 +76,9 @@ Function Get-CDThreatDetection
 		# Build lookup from Get-MpThreat - name, severity, category per ThreatID
 		$ThreatInfo = @{}
 		Get-MpThreat -ErrorAction SilentlyContinue | ForEach-Object {
-			$ThreatInfo[[int]$_.ThreatID] = $_
+			# [Int64], not [int]: Defender threat IDs are unsigned 32-bit and routinely exceed [int]::MaxValue
+			# (e.g. 2147725502), so an [int] cast threw and lost the whole detection list.
+			$ThreatInfo[[Int64]$_.ThreatID] = $_
 		}
 
 		$Detections = @(Get-MpThreatDetection -ErrorAction SilentlyContinue)
@@ -85,7 +87,7 @@ Function Get-CDThreatDetection
 		{ $Detections = $Detections | Where-Object { $_.InitialDetectionTime -ge $Since } }
 
 		$Detections = $Detections | ForEach-Object {
-			$TID    = [int]$_.ThreatID
+			$TID    = [Int64]$_.ThreatID
 			$Info   = $ThreatInfo[$TID]
 			$Sid    = [int]$_.ThreatStatusID
 			$AId    = [int]$_.CleaningActionID

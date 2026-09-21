@@ -143,6 +143,41 @@ Describe 'Data Structures' {
 }
 
 # ============================================================
+Describe 'Get-CDThreatDetection' {
+	# Regression (2026-09-21): [int]$ThreatID threw for any ID above [int]::MaxValue, and Defender's IDs do
+	# exceed it (a real detection had ID 2147725502), so the whole detection list was lost to the catch audit.
+	BeforeAll {
+		$Script:BigId = [Int64]2147725502
+		Mock -ModuleName ConfigureDefender Get-MpThreat {
+			return [PSCustomObject]@{ ThreatID = 2147725502; ThreatName = 'Test:Big.ID'; SeverityID = 5; CategoryID = 8; IsActive = $false }
+		}
+		Mock -ModuleName ConfigureDefender Get-MpThreatDetection {
+			return [PSCustomObject]@{
+				ThreatID = 2147725502; ThreatStatusID = 4; CleaningActionID = 3; DetectionSourceTypeID = 1
+				CurrentThreatExecutionStatusID = 0; InitialDetectionTime = (Get-Date); ActionSuccess = $true
+				DomainUser = 'TEST\user'; ProcessName = 'test.exe'; Resources = @('file:_C:\x'); DetectionID = 'abc'
+			}
+		}
+	}
+
+	It 'returns a detection whose ThreatID is above the 32-bit integer range, instead of throwing' {
+		$Result = @(Get-CDThreatDetection)
+		$Result.Count | Should -Be 1
+		$Result[0].ThreatID | Should -Be $Script:BigId
+	}
+
+	It 'still resolves the threat name for that large ID (lookup key and detection ID use the same type)' {
+		(Get-CDThreatDetection)[0].ThreatName | Should -Be 'Test:Big.ID'
+	}
+
+	It 'writes nothing to the catch audit for a large ID' {
+		Clear-MyCatchAuditLog -ErrorAction SilentlyContinue
+		$null = Get-CDThreatDetection
+		@(Get-MyCatchAuditLog | Where-Object { $_.Source -like '*Get-CDThreatDetection*' }).Count | Should -Be 0
+	}
+}
+
+# ============================================================
 Describe 'Get-CDASRRule' {
 	BeforeAll {
 		Mock -ModuleName ConfigureDefender Get-MpPreference { return $Script:MpPref }

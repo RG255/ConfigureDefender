@@ -15,6 +15,12 @@ All notable changes to this project will be documented in this file.
   logs (`-Check` reports without elevation). `Enable-MyFunctionTrace` warns once when the folder is not locked
   down; `$env:MyFunctionTraceNoAclWarning = '1'` silences it.
 
+### Fixed (2026-09-21)
+
+- `Get-CDThreatDetection` threw for any Defender threat ID above 2,147,483,647 (for example 2147725502), because it
+  cast the ID to a 32-bit `[int]`. The whole detection list was lost and the failure only showed up in the catch
+  audit. It now uses `[Int64]`. Regression tests added.
+
 ### Removed (2026-09-21)
 
 - The "ConfigureDefender loaded. To use run: Start-ConfigureDefenderGUI" banner printed on import. Several
