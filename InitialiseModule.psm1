@@ -44,22 +44,6 @@ try
 		}
 	}
 
-	Function Show-CDModuleLoadedBanner
-	{
-		# Deliberately process-wide, not per-module-import - shows the load banner ONCE per process
-		# even if the module is re-imported (-Force during development, or auto-loaded then explicitly
-		# imported again), same "show once" pattern as the vendored MyCatchAuditNoticeShown flag.
-		[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidGlobalVars', '',
-			Justification = 'Deliberately process-wide - the "show once per process" guard only works if it survives a module re-import, which a $script: var would not.')]
-		[CmdletBinding()]
-		Param ()
-		if (-not $global:CDModuleMessageShown)
-		{
-			Write-Host 'ConfigureDefender loaded. To use run: Start-ConfigureDefenderGUI'
-			$global:CDModuleMessageShown = $true
-		}
-	}
-
 	Function Initialize-Folder
 	{
 		[CmdletBinding()]
@@ -224,8 +208,6 @@ try
 		default
 		{ throw 'ConfigureDefender requires Windows.' }
 	}
-
-	Show-CDModuleLoadedBanner
 }
 catch
 {

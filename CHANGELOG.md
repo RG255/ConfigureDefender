@@ -12,6 +12,12 @@ All notable changes to this project will be documented in this file.
 - Catch-audit housekeeping (`Clear-MyCatchAuditArchive`).
 - Now requires NamedPipe 0.15 (was 0.14).
 
+### Removed (2026-09-21)
+
+- The "ConfigureDefender loaded. To use run: Start-ConfigureDefenderGUI" banner printed on import. Several
+  modules export the same trace commands, so typing e.g. `Enable-MyFunctionTrace` could auto-load this
+  module as a side effect and show an unrelated message. Run `Start-ConfigureDefenderGUI` to use the module.
+
 ### Changed (BREAKING)
 
 - 13 exported `Get-CD*` accessors renamed to singular nouns, matching their existing `Set-CD*`
