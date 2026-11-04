@@ -24,9 +24,9 @@ A PowerShell module for managing Microsoft Defender configuration on Windows 10/
 ## Installation
 
 1. Install the NamedPipe module (required dependency).
-2. Copy the `ConfigureDefender\0.4` folder to a path in `$env:PSModulePath`, e.g.:
+2. Copy the `ConfigureDefender\0.5` folder to a path in `$env:PSModulePath`, e.g.:
    ```
-   %USERPROFILE%\Documents\WindowsPowerShell\Modules\ConfigureDefender\0.4\
+   %USERPROFILE%\Documents\WindowsPowerShell\Modules\ConfigureDefender\0.5\
    ```
 3. Import and launch:
    ```powershell

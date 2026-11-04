@@ -16,7 +16,7 @@
 
 	.EXAMPLE
 	Remove-Module ConfigureDefender -Force -ErrorAction SilentlyContinue
-	Import-Module ConfigureDefender -RequiredVersion 0.4
+	Import-Module ConfigureDefender -RequiredVersion 0.5
 #>
 try
 {

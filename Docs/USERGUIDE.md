@@ -1,4 +1,4 @@
-# ConfigureDefender Module v0.4 - User Guide
+# ConfigureDefender Module v0.5 - User Guide
 
 <!-- CONTRIBUTOR NOTE: Do NOT use em-dashes in this file. Use a regular hyphen (-) only.
      Em-dashes cause PowerShell parser errors in string literals and may be silently
@@ -58,7 +58,7 @@ lifetime of the GUI session. The GUI calls `Open-CDPipeSession` to start it and
 ## Quick Start
 
 ```powershell
-Import-Module ConfigureDefender -RequiredVersion 0.4
+Import-Module ConfigureDefender -RequiredVersion 0.5
 
 # Read ASR rule states (no elevation)
 Get-CDASRRule
@@ -899,7 +899,7 @@ a dropped session transparently.
 
 ### "Module not found" in elevated server
 Ensure ConfigureDefender is deployed to a path in `$env:PSModulePath` (e.g.
-`C:\Program Files\WindowsPowerShell\Modules\ConfigureDefender\0.4\`).
+`C:\Program Files\WindowsPowerShell\Modules\ConfigureDefender\0.5\`).
 
 ### Get-CDEvent returns nothing (or the Events tab / SAC filter is empty)
 The event log query defaults to events since the last boot. Use `-Since` with an earlier

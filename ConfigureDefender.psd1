@@ -8,12 +8,12 @@
 
 @{
 	RootModule        = 'InitialiseModule.psm1'
-	ModuleVersion     = '0.4'
+	ModuleVersion     = '0.5'
 	GUID              = 'b4ddb8e6-c93f-4879-9209-31f600ad2a36'
 	Author            = 'RayG'
 	CompanyName       = 'RayG'
 	Copyright         = '(c) 2026 RayG. All rights reserved.'
-	Description       = 'Manages Microsoft Defender configuration: ASR rules, exclusions, Controlled Folder Access, Network Protection, and event inspection. Provides a GUI front-end via NamedPipe elevation. v0.4: PSScriptAnalyzer cleanup - 13 exported Get-CD* accessors renamed to singular nouns to match their existing Set-CD* siblings (breaking change, see CHANGELOG.md).'
+	Description       = 'Manages Microsoft Defender configuration: ASR rules, exclusions, Controlled Folder Access, Network Protection, and event inspection. Provides a GUI front-end via NamedPipe elevation. v0.5: GUI hardening and refactor, safe quoting of typed values, audit-event fixes, requires NamedPipe 0.17 (see CHANGELOG.md). v0.4: PSScriptAnalyzer cleanup - 13 exported Get-CD* accessors renamed to singular nouns to match their existing Set-CD* siblings (breaking change, see CHANGELOG.md).'
 	PowerShellVersion = '5.0'
 	RequiredModules   = @(
 		@{

@@ -46,8 +46,8 @@ Describe 'Module Import' {
 		Get-Module -Name ConfigureDefender | Should -Not -BeNullOrEmpty
 	}
 
-	It 'Should be version 0.4' {
-		(Get-Module -Name ConfigureDefender).Version.ToString() | Should -Be '0.4'
+	It 'Should be version 0.5' {
+		(Get-Module -Name ConfigureDefender).Version.ToString() | Should -Be '0.5'
 	}
 
 	It 'Should have the correct GUID' {
@@ -1727,7 +1727,7 @@ Describe 'InitialiseModule.psm1 reports the real failure' {
 	}
 
 	It 'a module with a broken function file fails to import and the report names that file and statement, not an unrelated earlier error' {
-		$Dest = Join-Path $TestDrive 'ConfigureDefender\0.4'
+		$Dest = Join-Path $TestDrive 'ConfigureDefender\0.5'
 		New-Item -ItemType Directory -Path $Dest -Force | Out-Null
 		Copy-Item (Join-Path $Script:ModulePath '*') $Dest -Recurse -Exclude 'Tests'
 		Add-Content -LiteralPath (Join-Path $Dest 'FunctionsWindows\Get-CDNetworkProtection.ps1') -Value "`r`nFunction Broken-Thing { if ( }"
