@@ -67,7 +67,7 @@ Function Set-CDCIVerbose
 		}
 		# Best-effort: restore the default cap / mode while disabled (separate saves).
 		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.MaximumSizeInBytes = $DefaultBytes; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (-Disable): restore default MaximumSizeInBytes' -ErrorRecord $_ }
-		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Retain; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (-Disable): restore default LogMode' -ErrorRecord $_ }
+		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Retain; $C.SaveChanges() } catch { If ($_.Exception.Message -notmatch 'The parameter is incorrect') { Write-MyCatchAudit -Source 'Set-CDCIVerbose (-Disable): restore default LogMode' -ErrorRecord $_ } }   # same known refusal (the mode is already Retain); only an unexpected failure is worth recording
 		try { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (-Disable): unregister watchdog task' -ErrorRecord $_ }
 	}
 	else
@@ -77,7 +77,7 @@ Function Set-CDCIVerbose
 		# Circular is still attempted in case a future build allows it. Separate saves, each on its own;
 		# a rejected size/mode change just leaves the 1 MB default and logging still works.
 		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.MaximumSizeInBytes = 134217728; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): widen MaximumSizeInBytes to 128MB' -ErrorRecord $_ }
-		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Circular; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): set LogMode Circular' -ErrorRecord $_ }
+		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Circular; $C.SaveChanges() } catch { If ($_.Exception.Message -notmatch 'The parameter is incorrect') { Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): set LogMode Circular' -ErrorRecord $_ } }   # this channel is Retain-only and ALWAYS refuses Circular; only an unexpected failure is worth recording
 
 		# Critical: enable the channel (its own SaveChanges). Same fail-loud-but-audited treatment as
 		# the -Disable branch above.

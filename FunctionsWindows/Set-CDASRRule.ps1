@@ -36,6 +36,7 @@ Function Set-CDASRRule
 	(
 		[Parameter(Mandatory, ParameterSetName = 'Change')]
 		[Parameter(Mandatory, ParameterSetName = 'Add')]
+		[ValidatePattern('^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$')]
 		[string]$GUID,
 
 		[Parameter(Mandatory, ParameterSetName = 'Change')]
@@ -51,6 +52,7 @@ Function Set-CDASRRule
 		[switch]$AddAll,
 
 		[Parameter(Mandatory, ParameterSetName = 'Remove')]
+		[ValidatePattern('^[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$')]
 		[string]$RemoveGUID,
 
 		[Parameter(Mandatory, ParameterSetName = 'RemoveAll')]
@@ -70,11 +72,10 @@ Function Set-CDASRRule
 			}
 			'AddAll'
 			{
-				foreach ($RuleGUID in $script:ASRRules.Keys)
-				{
-					Add-MpPreference -AttackSurfaceReductionRules_Ids $RuleGUID `
-						-AttackSurfaceReductionRules_Actions $script:ASROptions[$Action]
-				}
+				# ONE call with parallel arrays (the documented form), not one call per rule
+				$RuleIds     = @($script:ASRRules.Keys)
+				$RuleActions = @($RuleIds | ForEach-Object { $script:ASROptions[$Action] })
+				Add-MpPreference -AttackSurfaceReductionRules_Ids $RuleIds -AttackSurfaceReductionRules_Actions $RuleActions
 			}
 			'Remove'
 			{
@@ -82,12 +83,8 @@ Function Set-CDASRRule
 			}
 			'RemoveAll'
 			{
-				$CurrentIDs = (Get-MpPreference).AttackSurfaceReductionRules_Ids
-				if ($CurrentIDs)
-				{
-					foreach ($RuleGUID in $CurrentIDs)
-					{ Remove-MpPreference -AttackSurfaceReductionRules_Ids $RuleGUID }
-				}
+				$CurrentIDs = @((Get-MpPreference).AttackSurfaceReductionRules_Ids | Where-Object { $_ })
+				if ($CurrentIDs.Count -gt 0) { Remove-MpPreference -AttackSurfaceReductionRules_Ids $CurrentIDs }
 			}
 		}
 	}

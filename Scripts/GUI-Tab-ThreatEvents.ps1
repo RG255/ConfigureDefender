@@ -1,4 +1,4 @@
-﻿#region Tab 10 - Threat Actions
+﻿#region Tab 5 - Threat Actions
 $TabThreat = New-Tab 'Threat Actions'
 
 $ToolStripThreat      = New-Object System.Windows.Forms.ToolStrip
@@ -67,9 +67,7 @@ $TabThreat.Controls.Add($LvThreat)
 $TabThreat.Controls.Add($ToolStripThreat)
 
 $TsBtnThreatRefresh.Add_Click({
-		$StatusLabel.Text = 'Loading...'
-		$Form.UseWaitCursor = $true
-		[System.Windows.Forms.Application]::DoEvents()
+		Enter-GuiBusy
 		$LvThreat.Items.Clear()
 		try
 		{
@@ -83,11 +81,11 @@ $TsBtnThreatRefresh.Add_Click({
 			$StatusLabel.Text = "Threat Actions loaded."
 		}
 		catch { $StatusLabel.Text = 'Error loading Threat Actions: ' + $_.Exception.Message }
-		finally { $Form.UseWaitCursor = $false }
+		finally { Exit-GuiBusy }
 	})
 #endregion
 
-#region Tab 11 - Events
+#region Tab 6 - Events
 $TabEvents = New-Tab 'Events'
 
 $ToolStripEvents      = New-Object System.Windows.Forms.ToolStrip
@@ -208,9 +206,7 @@ $TsBtnEvRefresh.Add_Click({
 		if ($script:EvRefreshing) { return }
 		$script:EvRefreshing = $true
 		$script:EvFindBusy = $true; $TsTxtFind.Text = ''; $script:EvFindBusy = $false
-		$StatusLabel.Text = 'Loading...'
-		$Form.UseWaitCursor = $true
-		[System.Windows.Forms.Application]::DoEvents()
+		Enter-GuiBusy
 		try
 		{
 			$FilterVal = if ($TsCmbEvFilter.SelectedItem)  { $TsCmbEvFilter.SelectedItem.ToString()  } else { 'All' }
@@ -234,21 +230,24 @@ $TsBtnEvRefresh.Add_Click({
 			$script:GridRows   = @($Events)
 			$script:GridLoaded = $false
 			$LvEvents.BeginUpdate()
-			foreach ($Ev in $Events)
+			try
 			{
-				$Li = New-Object System.Windows.Forms.ListViewItem($Ev.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'))
-				$Li.SubItems.Add($Ev.EventType)                                           | Out-Null
-				$Li.SubItems.Add($(if ($Ev.ProcessName) { $Ev.ProcessName } else { '' })) | Out-Null
-				$Li.SubItems.Add($(if ($Ev.Path)        { $Ev.Path }        else { '' })) | Out-Null
-				$Li.SubItems.Add($(if ($Ev.RuleInfo)    { $Ev.RuleInfo }    else { '' })) | Out-Null
-				$Li.Tag = $Ev
-				if ($Ev.EventType -eq 'Controlled Folder Access') { $Li.ForeColor = [System.Drawing.Color]::DarkBlue }
-				elseif ($Ev.EventType -eq 'Smart App Control (allowed)') { $Li.ForeColor = [System.Drawing.Color]::DarkGreen }
-				elseif ($Ev.EventType -like 'Smart App Control*') { $Li.ForeColor = [System.Drawing.Color]::DarkRed }
-				$LvEvents.Items.Add($Li) | Out-Null
+				foreach ($Ev in $Events)
+				{
+					$Li = New-Object System.Windows.Forms.ListViewItem($Ev.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'))
+					$Li.SubItems.Add($Ev.EventType)                                           | Out-Null
+					$Li.SubItems.Add($(if ($Ev.ProcessName) { $Ev.ProcessName } else { '' })) | Out-Null
+					$Li.SubItems.Add($(if ($Ev.Path)        { $Ev.Path }        else { '' })) | Out-Null
+					$Li.SubItems.Add($(if ($Ev.RuleInfo)    { $Ev.RuleInfo }    else { '' })) | Out-Null
+					$Li.Tag = $Ev
+					if ($Ev.EventType -eq 'Controlled Folder Access') { $Li.ForeColor = [System.Drawing.Color]::DarkBlue }
+					elseif ($Ev.EventType -eq 'Smart App Control (allowed)') { $Li.ForeColor = [System.Drawing.Color]::DarkGreen }
+					elseif ($Ev.EventType -like 'Smart App Control*') { $Li.ForeColor = [System.Drawing.Color]::DarkRed }
+					$LvEvents.Items.Add($Li) | Out-Null
+				}
+				Add-EmptyPlaceholder $LvEvents
 			}
-			Add-EmptyPlaceholder $LvEvents
-			$LvEvents.EndUpdate()
+			finally { $LvEvents.EndUpdate() }
 			if ($Events.Count -eq 0)
 			{
 				$Hint = if ($FilterVal -eq 'SAC-Allow')
@@ -266,7 +265,7 @@ $TsBtnEvRefresh.Add_Click({
 			try { Write-OperationError -Operation ('Get-CDEvent -Filter {0}' -f $FilterVal) -ErrorInfo $_ } catch { Write-MyCatchAudit -Source 'GUI-Tab-ThreatEvents: Write-OperationError call itself failed' -ErrorRecord $_ }
 			$StatusLabel.Text = 'Error loading Events: ' + $_.Exception.Message
 		}
-		finally { $script:EvRefreshing = $false; $Form.UseWaitCursor = $false; [System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default }
+		finally { $script:EvRefreshing = $false; Exit-GuiBusy }
 	})
 
 $TsBtnEvAdd.Add_Click({
@@ -285,7 +284,7 @@ $TsBtnEvAdd.Add_Click({
 				try
 				{
 					$SRP     = Get-CDSRP
-					$Escaped = $PathToAdd -replace "'", "''"
+					$Escaped = ConvertTo-CDEscapedArg $PathToAdd
 					$SRP.DataObject = "Set-CDASRExclusion -Path '$Escaped' -Add" | Send-Request @SRP
 					if ($SRP.DataObject.Error)
 					{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
@@ -309,7 +308,7 @@ $TsBtnEvAdd.Add_Click({
 				try
 				{
 					$SRP     = Get-CDSRP
-					$Escaped = $ProcName -replace "'", "''"
+					$Escaped = ConvertTo-CDEscapedArg $ProcName
 					$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add" | Send-Request @SRP
 					if ($SRP.DataObject.Error)
 					{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
@@ -406,22 +405,25 @@ $LvEvents.Add_DoubleClick($EvShowDetails)
 function Add-EvRowsToGrid ($Events)
 {
 	$LvEvents.BeginUpdate()
-	$LvEvents.Items.Clear()
-	foreach ($Ev in $Events)
+	try
 	{
-		$Li = New-Object System.Windows.Forms.ListViewItem($Ev.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'))
-		$Li.SubItems.Add([string]$Ev.EventType)   | Out-Null
-		$Li.SubItems.Add([string]$Ev.ProcessName) | Out-Null
-		$Li.SubItems.Add([string]$Ev.Path)        | Out-Null
-		$Li.SubItems.Add([string]$Ev.RuleInfo)    | Out-Null
-		$Li.Tag = $Ev
-		if ($Ev.EventType -eq 'Smart App Control (allowed)') { $Li.ForeColor = [System.Drawing.Color]::DarkGreen }
-		elseif ($Ev.EventType -eq 'Smart App Control') { $Li.ForeColor = [System.Drawing.Color]::DarkRed }
-		elseif ($Ev.EventType -eq 'Controlled Folder Access') { $Li.ForeColor = [System.Drawing.Color]::DarkBlue }
-		$LvEvents.Items.Add($Li) | Out-Null
+		$LvEvents.Items.Clear()
+		foreach ($Ev in $Events)
+		{
+			$Li = New-Object System.Windows.Forms.ListViewItem($Ev.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'))
+			$Li.SubItems.Add([string]$Ev.EventType)   | Out-Null
+			$Li.SubItems.Add([string]$Ev.ProcessName) | Out-Null
+			$Li.SubItems.Add([string]$Ev.Path)        | Out-Null
+			$Li.SubItems.Add([string]$Ev.RuleInfo)    | Out-Null
+			$Li.Tag = $Ev
+			if ($Ev.EventType -eq 'Smart App Control (allowed)') { $Li.ForeColor = [System.Drawing.Color]::DarkGreen }
+			elseif ($Ev.EventType -eq 'Smart App Control') { $Li.ForeColor = [System.Drawing.Color]::DarkRed }
+			elseif ($Ev.EventType -eq 'Controlled Folder Access') { $Li.ForeColor = [System.Drawing.Color]::DarkBlue }
+			$LvEvents.Items.Add($Li) | Out-Null
+		}
+		Add-EmptyPlaceholder $LvEvents
 	}
-	Add-EmptyPlaceholder $LvEvents
-	$LvEvents.EndUpdate()
+	finally { $LvEvents.EndUpdate() }
 }
 
 # Flatten allow rows (top-level + Details) to CSV via a Save dialog. Returns $true if written.
@@ -432,7 +434,9 @@ function Save-SacAllowCapture ($Rows)
 	$Sfd.Title    = 'Save SAC capture (allows + blocks in the same window)'
 	$Sfd.Filter   = 'CSV files (*.csv)|*.csv|All files (*.*)|*.*'
 	$Sfd.FileName = 'SAC-Capture-{0}.csv' -f (Get-Date -Format 'yyyyMMdd-HHmmss')
-	if ($Sfd.ShowDialog($Form) -ne 'OK') { return $false }
+	$SfdOk = $false; $SfdPath = $null
+	try { $SfdOk = ($Sfd.ShowDialog($Form) -eq 'OK'); $SfdPath = $Sfd.FileName } finally { $Sfd.Dispose() }
+	if (-not $SfdOk) { return $false }
 	$Keys = New-Object System.Collections.Generic.List[string]
 	foreach ($k in 'Time', 'Type', 'Process', 'Path', 'Rule') { $Keys.Add($k) }
 	foreach ($r in $Rows) { if ($r.Details) { foreach ($k in $r.Details.Keys) { if (-not $Keys.Contains([string]$k)) { $Keys.Add([string]$k) } } } }
@@ -444,8 +448,8 @@ function Save-SacAllowCapture ($Rows)
 	}
 	try
 	{
-		$Flat | Export-Csv -Path $Sfd.FileName -NoTypeInformation -Encoding UTF8
-		$StatusLabel.Text = 'Saved {0} event(s) to {1}' -f $Rows.Count, $Sfd.FileName
+		$Flat | Export-Csv -Path $SfdPath -NoTypeInformation -Encoding UTF8
+		$StatusLabel.Text = 'Saved {0} event(s) to {1}' -f $Rows.Count, $SfdPath
 		return $true
 	}
 	catch { $StatusLabel.Text = 'Save failed: ' + $_.Exception.Message; return $false }
@@ -487,7 +491,7 @@ function Get-EvFilteredRow
 	if (-not $Find) { return $Src }
 	return @($Src | Where-Object {
 			$Hay = '{0} {1} {2} {3}' -f $_.ProcessName, $_.Path, $_.RuleInfo, (@($_.Details.Values) -join ' ')
-			$Hay -ilike "*$Find*"
+			$Hay.IndexOf($Find, [StringComparison]::OrdinalIgnoreCase) -ge 0
 		})
 }
 
@@ -523,10 +527,12 @@ $TsBtnOpenAllows.Add_Click({
 		$Ofd = New-Object System.Windows.Forms.OpenFileDialog
 		$Ofd.Title  = 'Open a saved SAC allows CSV'
 		$Ofd.Filter = 'CSV files (*.csv)|*.csv|All files (*.*)|*.*'
-		if ($Ofd.ShowDialog($Form) -ne 'OK') { return }
+		$OfdOk = $false; $OfdPath = $null
+		try { $OfdOk = ($Ofd.ShowDialog($Form) -eq 'OK'); $OfdPath = $Ofd.FileName } finally { $Ofd.Dispose() }
+		if (-not $OfdOk) { return }
 		try
 		{
-			$csv  = @(Import-Csv -Path $Ofd.FileName)
+			$csv  = @(Import-Csv -Path $OfdPath)
 			$rows = foreach ($r in $csv)
 			{
 				$det = [ordered]@{}
@@ -539,7 +545,7 @@ $TsBtnOpenAllows.Add_Click({
 			$script:GridLoaded = $true
 			$script:EvFindBusy = $true; $TsTxtFind.Text = ''; $script:EvFindBusy = $false
 			Add-EvRowsToGrid $rows
-			$StatusLabel.Text = 'Loaded {0} row(s) from {1}. Type in Find to isolate a program (matches any column), then Save keeps just those. Refresh reverts to live.' -f $rows.Count, (Split-Path $Ofd.FileName -Leaf)
+			$StatusLabel.Text = 'Loaded {0} row(s) from {1}. Type in Find to isolate a program (matches any column), then Save keeps just those. Refresh reverts to live.' -f $rows.Count, (Split-Path $OfdPath -Leaf)
 		}
 		catch { $StatusLabel.Text = 'Open failed: ' + $_.Exception.Message }
 	})
@@ -554,33 +560,60 @@ $script:LogAllowsManual      = $false   # $true when started with Auto-off = 0 (
 $script:LogAllowsTimer       = New-Object System.Windows.Forms.Timer
 
 $script:LogAllowsTimer.Add_Tick({
-		$script:LogAllowsTimer.Stop()
-		# Only claim the channel was turned OFF if it actually was. Previously any failure was
-		# swallowed and execution carried straight on to untick the toggle and report "SAC allow
-		# logging auto-off" - telling the user CodeIntegrity Verbose logging had stopped when it may
-		# still be running. That channel is high-volume, which is the whole reason this auto-off
-		# timer and the next-reboot watchdog exist, so a false "it is off" is exactly wrong.
-		# NOTE Send-Request reports server-side failure in $DataObject.Error - it does NOT throw - so
-		# the catch alone was never sufficient; the returned Error has to be inspected as well.
-		$Private:OffOK  = $false
-		$Private:OffWhy = ''
+		# A timer tick must NEVER throw: an exception that escapes an event handler shows the WinForms
+		# "Unhandled exception" dialog. So the whole body is guarded, and a failure is reported (status bar + catch
+		# audit) instead. This handler also used to run with nothing stopping a timer left over from a GUI that had
+		# already been closed - the window close handler now stops and disposes the timer.
 		try
 		{
-			$SRP = Get-CDSRP
-			$SRP.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @SRP
-			if ([string]::IsNullOrWhiteSpace([string]$SRP.DataObject.Error)) { $Private:OffOK = $true }
-			else { $Private:OffWhy = [string]$SRP.DataObject.Error }
+			if ($null -eq $script:LogAllowsTimer) { return }
+			$script:LogAllowsTimer.Stop()
+			# Only claim the channel was turned OFF if it actually was. Send-Request reports a server-side failure in
+			# DataObject.Error and does NOT throw, which Invoke-SacLoggingOff takes care of.
+			$Off = Invoke-SacLoggingOff
+			$script:LogAllowsBusy = $true
+			# Leave the toggle showing ON when the disable failed - it then reflects the REAL state.
+			$TsBtnLogAllows.Checked = -not $Off.Ok
+			$script:LogAllowsBusy = $false
+			if ($Off.Ok)
+			{ $StatusLabel.Text = 'SAC allow logging auto-off. Pick the SAC-Allow filter and Refresh to view captured allows.' }
+			else
+			{ $StatusLabel.Text = 'WARNING: auto-off FAILED - SAC allow logging may STILL BE ON. Turn it off manually. ' + $Off.Why }
 		}
-		catch { $Private:OffWhy = $_.Exception.Message }
-		$script:LogAllowsBusy = $true
-		# Leave the toggle showing ON when the disable failed - it then reflects the REAL state.
-		$TsBtnLogAllows.Checked = -not $Private:OffOK
-		$script:LogAllowsBusy = $false
-		if ($Private:OffOK)
-		{ $StatusLabel.Text = 'SAC allow logging auto-off. Pick the SAC-Allow filter and Refresh to view captured allows.' }
-		else
-		{ $StatusLabel.Text = 'WARNING: auto-off FAILED - SAC allow logging may STILL BE ON. Turn it off manually. ' + $Private:OffWhy }
+		catch
+		{
+			Write-MyCatchAudit -Source 'GUI-Tab-ThreatEvents: SAC allow-logging auto-off timer tick' -ErrorRecord $_
+			$script:LogAllowsBusy = $false
+			$StatusLabel.Text = 'WARNING: the SAC auto-off timer failed - SAC allow logging may STILL BE ON. Turn it off manually. ' + $_.Exception.Message
+		}
 	})
+function Invoke-SacLoggingOff
+{
+	<#
+		.SYNOPSIS
+		Turns SAC allow logging off through the elevated server and reports whether it REALLY worked.
+
+		.DESCRIPTION
+		Send-Request reports a server-side failure in DataObject.Error and does NOT throw, so catching alone never
+		saw a failed disable. Returns Ok = $true only when the request completed with no error; otherwise Ok = $false
+		and Why holds the error text.
+	#>
+	[CmdletBinding()]
+	[OutputType([PSCustomObject])]
+	param()
+
+	$Ok  = $false
+	$Why = ''
+	try
+	{
+		$SRP = Get-CDSRP
+		$SRP.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @SRP
+		$Err = [string]$SRP.DataObject.Error
+		if ([string]::IsNullOrWhiteSpace($Err)) { $Ok = $true } else { $Why = $Err }
+	}
+	catch { $Why = $_.Exception.Message; Write-MyCatchAudit -Source 'Invoke-SacLoggingOff: Set-CDCIVerbose -Disable request' -ErrorRecord $_ }
+	[PSCustomObject]@{ Ok = $Ok; Why = $Why }
+}
 
 $TsBtnLogAllows.Add_CheckedChanged({
 		if ($script:LogAllowsBusy) { return }
@@ -656,7 +689,7 @@ $TsBtnLogAllows.Add_CheckedChanged({
 							if ($TsBtnLogAllows.Checked -and -not $script:LogAllowsManual)
 							{
 								$s = Get-CDSendRequestParam
-								if ($s) { try { $s.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @s } catch { $null = $_ } }
+								if ($s) { try { $s.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @s } catch { Write-MyCatchAudit -Source 'GUI-Tab-ThreatEvents: turn SAC allow logging off on close' -ErrorRecord $_ } }
 							}
 						})
 					$script:LogAllowsCloseHooked = $true
@@ -673,9 +706,16 @@ $TsBtnLogAllows.Add_CheckedChanged({
 			$script:LogAllowsTimer.Stop()
 			try
 			{
-				$SRP = Get-CDSRP
-				$SRP.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @SRP
-				$StatusLabel.Text = 'SAC allow logging OFF.'
+				$Off = Invoke-SacLoggingOff
+				if ($Off.Ok)
+				{ $StatusLabel.Text = 'SAC allow logging OFF.' }
+				else
+				{
+					# The request FAILED on the server: the channel may still be logging. Keep the toggle showing ON
+					# (the real state) and say so instead of claiming it is off.
+					$script:LogAllowsBusy = $true; $TsBtnLogAllows.Checked = $true; $script:LogAllowsBusy = $false
+					$StatusLabel.Text = 'WARNING: could not turn SAC allow logging off - it may still be ON. ' + $Off.Why
+				}
 			}
 			catch { $StatusLabel.Text = 'Log Allows off error: ' + $_.Exception.Message }
 		}
@@ -700,16 +740,20 @@ $Form.Add_Shown({
 				{
 					try
 					{
-						$LcSrp = Get-CDSRP
-						$LcSrp.DataObject = 'Set-CDCIVerbose -Disable' | Send-Request @LcSrp
-						$script:LogAllowsBusy = $true; $TsBtnLogAllows.Checked = $false; $script:LogAllowsBusy = $false
-						$StatusLabel.Text = 'SAC allow logging turned OFF.'
+						$LcOff = Invoke-SacLoggingOff
+						if ($LcOff.Ok)
+						{
+							$script:LogAllowsBusy = $true; $TsBtnLogAllows.Checked = $false; $script:LogAllowsBusy = $false
+							$StatusLabel.Text = 'SAC allow logging turned OFF.'
+						}
+						else
+						{ $StatusLabel.Text = 'WARNING: could not turn SAC allow logging off - it may still be ON. ' + $LcOff.Why }
 					}
 					catch { $StatusLabel.Text = 'Could not turn off SAC allow logging: ' + $_.Exception.Message }
 				}
 			}
 		}
-		catch { $null = $_ }
+		catch { Write-MyCatchAudit -Source 'GUI-Tab-ThreatEvents: start-up check for SAC allow logging left on' -ErrorRecord $_ }
 	})
 #endregion
 

@@ -31,231 +31,52 @@ Function Get-CDSetting
 		$SampleOpts = [ordered]@{ 0 = 'Always Prompt'; 1 = 'Send Safe Samples'; 2 = 'Never Send'; 3 = 'Send All Samples' }
 		$CloudLevelOpts = [ordered]@{ 0 = 'Default'; 1 = 'Moderate'; 2 = 'High'; 4 = 'High Plus'; 6 = 'Zero Tolerance' }
 
-		@(
-			# --- Scanning ---
-			[PSCustomObject]@{
-				Name         = 'DisableRealtimeMonitoring'
-				FriendlyName = 'Disable Real-Time Monitoring'
-				Value        = $Pref.DisableRealtimeMonitoring
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Turns off real-time monitoring. Not recommended for production use.'
-			}
-			[PSCustomObject]@{
-				Name         = 'DisableBehaviorMonitoring'
-				FriendlyName = 'Disable Behavior Monitoring'
-				Value        = $Pref.DisableBehaviorMonitoring
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Turns off behavior-based detection.'
-			}
-			[PSCustomObject]@{
-				Name         = 'DisableArchiveScanning'
-				FriendlyName = 'Disable Archive Scanning'
-				Value        = $Pref.DisableArchiveScanning
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Skips scanning inside archive files (zip, cab, etc.).'
-			}
-			[PSCustomObject]@{
-				Name         = 'DisableEmailScanning'
-				FriendlyName = 'Disable Email Scanning'
-				Value        = $Pref.DisableEmailScanning
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Skips scanning email messages and mailbox files.'
-			}
-			[PSCustomObject]@{
-				Name         = 'DisableScriptScanning'
-				FriendlyName = 'Disable Script Scanning'
-				Value        = $Pref.DisableScriptScanning
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Skips scanning scripts during malware scans.'
-			}
-			[PSCustomObject]@{
-				Name         = 'DisableIOAVProtection'
-				FriendlyName = 'Disable Downloaded File Scanning (IOAV)'
-				Value        = $Pref.DisableIOAVProtection
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Skips scanning all downloaded files and attachments.'
-			}
-			[PSCustomObject]@{
-				Name         = 'DisableRemovableDriveScanning'
-				FriendlyName = 'Disable Removable Drive Scanning'
-				Value        = $Pref.DisableRemovableDriveScanning
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Skips scanning removable drives (USB sticks, etc.) during full scans.'
-			}
-			[PSCustomObject]@{
-				Name         = 'DisableScanningNetworkFiles'
-				FriendlyName = 'Disable Network File Scanning'
-				Value        = $Pref.DisableScanningNetworkFiles
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Skips scanning network files on real-time scans.'
-			}
-			[PSCustomObject]@{
-				Name         = 'DisableScanningMappedNetworkDrivesForFullScan'
-				FriendlyName = 'Disable Mapped Drives for Full Scan'
-				Value        = $Pref.DisableScanningMappedNetworkDrivesForFullScan
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Skips mapped network drives during full scans.'
-			}
-			[PSCustomObject]@{
-				Name         = 'CheckForSignaturesBeforeRunningScan'
-				FriendlyName = 'Check Signatures Before Scan'
-				Value        = $Pref.CheckForSignaturesBeforeRunningScan
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Checks for updated signatures before starting a scheduled scan.'
-			}
-			# --- Protection ---
-			[PSCustomObject]@{
-				Name         = 'DisableBlockAtFirstSeen'
-				FriendlyName = 'Disable Block at First Seen'
-				Value        = $Pref.DisableBlockAtFirstSeen
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Disables the cloud-based block-at-first-seen feature.'
-			}
-			[PSCustomObject]@{
-				Name         = 'DisableTamperProtection'
-				FriendlyName = 'Disable Tamper Protection'
-				Value        = $Pref.DisableTamperProtection
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Disables tamper protection. May require additional permissions.'
-			}
-			[PSCustomObject]@{
-				Name         = 'EnableFileHashComputation'
-				FriendlyName = 'Enable File Hash Computation'
-				Value        = $Pref.EnableFileHashComputation
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Computes file hashes for all scanned files (increases CPU usage).'
-			}
-			[PSCustomObject]@{
-				Name         = 'PUAProtection'
-				FriendlyName = 'PUA Protection'
-				Value        = $Pref.PUAProtection
-				Type         = 'Enum'
-				Options      = $PUAOpts
-				Min          = $null; Max = $null
-				Description  = 'Potentially Unwanted Application protection level.'
-			}
-			# --- Cloud / MAPS ---
-			[PSCustomObject]@{
-				Name         = 'MAPSReporting'
-				FriendlyName = 'MAPS Reporting'
-				Value        = $Pref.MAPSReporting
-				Type         = 'Enum'
-				Options      = $MAPSOpts
-				Min          = $null; Max = $null
-				Description  = 'Microsoft Active Protection Service membership level.'
-			}
-			[PSCustomObject]@{
-				Name         = 'SubmitSamplesConsent'
-				FriendlyName = 'Sample Submission Consent'
-				Value        = $Pref.SubmitSamplesConsent
-				Type         = 'Enum'
-				Options      = $SampleOpts
-				Min          = $null; Max = $null
-				Description  = 'Controls whether samples are sent to Microsoft for analysis.'
-			}
-			[PSCustomObject]@{
-				Name         = 'CloudBlockLevel'
-				FriendlyName = 'Cloud Block Level'
-				Value        = $Pref.CloudBlockLevel
-				Type         = 'Enum'
-				Options      = $CloudLevelOpts
-				Min          = $null; Max = $null
-				Description  = 'Aggressiveness of cloud-delivered protection blocking.'
-			}
-			[PSCustomObject]@{
-				Name         = 'CloudExtendedTimeout'
-				FriendlyName = 'Cloud Extended Timeout (seconds)'
-				Value        = $Pref.CloudExtendedTimeout
-				Type         = 'Int'
-				Options      = $null
-				Min          = 0; Max = 50
-				Description  = 'Extra seconds (0-50) to block a suspicious file while the cloud analyses it.'
-			}
-			# --- Performance ---
-			[PSCustomObject]@{
-				Name         = 'EnableLowCpuPriority'
-				FriendlyName = 'Enable Low CPU Priority for Scans'
-				Value        = $Pref.EnableLowCpuPriority
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Runs scheduled scans at low CPU priority to reduce impact.'
-			}
-			[PSCustomObject]@{
-				Name         = 'DisableCpuThrottleOnIdleScans'
-				FriendlyName = 'Disable CPU Throttle on Idle Scans'
-				Value        = $Pref.DisableCpuThrottleOnIdleScans
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Allows scans to use full CPU when the machine is idle.'
-			}
-			# --- Network & CFA State ---
-			[PSCustomObject]@{
-				Name         = 'EnableNetworkProtection'
-				FriendlyName = 'Network Protection'
-				Value        = $Pref.EnableNetworkProtection
-				Type         = 'Enum'
-				Options      = $ModeOpts
-				Min          = $null; Max = $null
-				Description  = 'Blocks malicious websites and content. Disabled=0, Enabled=1, Audit=2.'
-			}
-			[PSCustomObject]@{
-				Name         = 'EnableControlledFolderAccess'
-				FriendlyName = 'Controlled Folder Access'
-				Value        = $Pref.EnableControlledFolderAccess
-				Type         = 'Enum'
-				Options      = $ModeOpts
-				Min          = $null; Max = $null
-				Description  = 'Protects folders from unauthorized changes. Values 3/4 (Block/Audit Disk) are read-only when active.'
-			}
-			# --- UI / Access ---
-			[PSCustomObject]@{
-				Name         = 'HideExclusionsFromLocalUsers'
-				FriendlyName = 'Hide Exclusions from Local Users'
-				Value        = $Pref.HideExclusionsFromLocalUsers
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Prevents non-admin users from seeing the exclusions list.'
-			}
-			[PSCustomObject]@{
-				Name         = 'UILockdown'
-				FriendlyName = 'UI Lockdown'
-				Value        = $Pref.UILockdown
-				Type         = 'Bool'
-				Options      = $null
-				Min          = $null; Max = $null
-				Description  = 'Disables the Defender UI for non-admin users.'
-			}
+		# One row per setting instead of 24 near-identical 9-line object literals.
+		#   N   = MpPreference property name (also the -Name that Set-CDSetting takes)
+		#   F   = label shown in the GUI          T = 'Bool' | 'Enum' | 'Int'
+		#   O   = option table for an Enum        Min / Max = range for an Int
+		#   D   = help text
+		# The objects returned are exactly the same as before: Name, FriendlyName, Value, Type, Options, Min, Max, Description.
+		$Defs = @(
+			@{ N = 'DisableRealtimeMonitoring'; F = 'Disable Real-Time Monitoring'; T = 'Bool'; D = 'Turns off real-time monitoring. Not recommended for production use.' }
+			@{ N = 'DisableBehaviorMonitoring'; F = 'Disable Behavior Monitoring'; T = 'Bool'; D = 'Turns off behavior-based detection.' }
+			@{ N = 'DisableArchiveScanning'; F = 'Disable Archive Scanning'; T = 'Bool'; D = 'Skips scanning inside archive files (zip, cab, etc.).' }
+			@{ N = 'DisableEmailScanning'; F = 'Disable Email Scanning'; T = 'Bool'; D = 'Skips scanning email messages and mailbox files.' }
+			@{ N = 'DisableScriptScanning'; F = 'Disable Script Scanning'; T = 'Bool'; D = 'Skips scanning scripts during malware scans.' }
+			@{ N = 'DisableIOAVProtection'; F = 'Disable Downloaded File Scanning (IOAV)'; T = 'Bool'; D = 'Skips scanning all downloaded files and attachments.' }
+			@{ N = 'DisableRemovableDriveScanning'; F = 'Disable Removable Drive Scanning'; T = 'Bool'; D = 'Skips scanning removable drives (USB sticks, etc.) during full scans.' }
+			@{ N = 'DisableScanningNetworkFiles'; F = 'Disable Network File Scanning'; T = 'Bool'; D = 'Skips scanning network files on real-time scans.' }
+			@{ N = 'DisableScanningMappedNetworkDrivesForFullScan'; F = 'Disable Mapped Drives for Full Scan'; T = 'Bool'; D = 'Skips mapped network drives during full scans.' }
+			@{ N = 'CheckForSignaturesBeforeRunningScan'; F = 'Check Signatures Before Scan'; T = 'Bool'; D = 'Checks for updated signatures before starting a scheduled scan.' }
+			@{ N = 'DisableBlockAtFirstSeen'; F = 'Disable Block at First Seen'; T = 'Bool'; D = 'Disables the cloud-based block-at-first-seen feature.' }
+			@{ N = 'DisableTamperProtection'; F = 'Disable Tamper Protection'; T = 'Bool'; D = 'Disables tamper protection. May require additional permissions.' }
+			@{ N = 'EnableFileHashComputation'; F = 'Enable File Hash Computation'; T = 'Bool'; D = 'Computes file hashes for all scanned files (increases CPU usage).' }
+			@{ N = 'PUAProtection'; F = 'PUA Protection'; T = 'Enum'; O = $PUAOpts; D = 'Potentially Unwanted Application protection level.' }
+			@{ N = 'MAPSReporting'; F = 'MAPS Reporting'; T = 'Enum'; O = $MAPSOpts; D = 'Microsoft Active Protection Service membership level.' }
+			@{ N = 'SubmitSamplesConsent'; F = 'Sample Submission Consent'; T = 'Enum'; O = $SampleOpts; D = 'Controls whether samples are sent to Microsoft for analysis.' }
+			@{ N = 'CloudBlockLevel'; F = 'Cloud Block Level'; T = 'Enum'; O = $CloudLevelOpts; D = 'Aggressiveness of cloud-delivered protection blocking.' }
+			@{ N = 'CloudExtendedTimeout'; F = 'Cloud Extended Timeout (seconds)'; T = 'Int'; Min = 0; Max = 50; D = 'Extra seconds (0-50) to block a suspicious file while the cloud analyses it.' }
+			@{ N = 'EnableLowCpuPriority'; F = 'Enable Low CPU Priority for Scans'; T = 'Bool'; D = 'Runs scheduled scans at low CPU priority to reduce impact.' }
+			@{ N = 'DisableCpuThrottleOnIdleScans'; F = 'Disable CPU Throttle on Idle Scans'; T = 'Bool'; D = 'Allows scans to use full CPU when the machine is idle.' }
+			@{ N = 'EnableNetworkProtection'; F = 'Network Protection'; T = 'Enum'; O = $ModeOpts; D = 'Blocks malicious websites and content. Disabled=0, Enabled=1, Audit=2.' }
+			@{ N = 'EnableControlledFolderAccess'; F = 'Controlled Folder Access'; T = 'Enum'; O = $ModeOpts; D = 'Protects folders from unauthorized changes. Values 3/4 (Block/Audit Disk) are read-only when active.' }
+			@{ N = 'HideExclusionsFromLocalUsers'; F = 'Hide Exclusions from Local Users'; T = 'Bool'; D = 'Prevents non-admin users from seeing the exclusions list.' }
+			@{ N = 'UILockdown'; F = 'UI Lockdown'; T = 'Bool'; D = 'Disables the Defender UI for non-admin users.' }
 		)
-	}
+
+		foreach ($Def in $Defs)
+		{
+			[PSCustomObject]@{
+				Name         = $Def.N
+				FriendlyName = $Def.F
+				Value        = $Pref.($Def.N)
+				Type         = $Def.T
+				Options      = $Def.O
+				Min          = $Def.Min
+				Max          = $Def.Max
+				Description  = $Def.D
+			}
+		}	}
 	catch
 	{
 		Write-MyCatchAudit -Source 'Get-CDSetting: querying Defender preference settings' -ErrorRecord $_

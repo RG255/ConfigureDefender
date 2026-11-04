@@ -25,10 +25,22 @@ Function Close-CDPipeSession
 	{
 		if ($script:CDPipeInfo)
 		{
-			if (Test-PipeSession -PipeInfo $script:CDPipeInfo)
+			# $script:CDPipeInfo is the whole ServerClientParams; the pipe object Test-PipeSession and
+			# Stop-PipeSession want is the PipeInfo one level down (see Test-CDPipeSession). Passing the outer
+			# object made Test-PipeSession return $false every time, so no ExitPipe was ever sent and the
+			# hidden elevated server was left running after the GUI closed.
+			$Private:PI = $script:CDPipeInfo.'PipeInfo'
+			if (Test-PipeSession -PipeInfo $Private:PI)
 			{
-				Stop-PipeSession -SendRequestParams $script:CDSendRequestParams `
-					-PipeInfo $script:CDPipeInfo
+				Stop-PipeSession -SendRequestParams $script:CDSendRequestParams -PipeInfo $Private:PI
+			}
+			elseif ($Private:PI)
+			{
+				# The normal exit cannot be delivered (server wedged or the pipe already dropped): go straight
+				# to KILL on the health pipe (NamedPipe 0.16) so a hidden elevated server is not left behind.
+				# Best effort - an unreachable server is already gone.
+				try { Stop-PipeSession -SendRequestParams $script:CDSendRequestParams -PipeInfo $Private:PI -Force }
+				catch { Write-MyCatchAudit -Source 'Close-CDPipeSession: force-stopping unreachable server' -ErrorRecord $_ }
 			}
 			$script:CDPipeInfo          = $null
 			$script:CDSendRequestParams = $null

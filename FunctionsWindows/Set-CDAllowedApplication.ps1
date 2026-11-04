@@ -54,7 +54,9 @@ Function Set-CDAllowedApplication
 				$List = (Get-MpPreference).ControlledFolderAccessAllowedApplications
 				foreach ($Item in $List)
 				{
-					if ($Item -and -not (Test-Path -Path $Item))
+					# Test-CDEntryMissing is cautious on purpose (wildcards, unexpandable variables, [ ] in names and any doubt
+					# all count as NOT missing) because this REMOVES entries
+					if (Test-CDEntryMissing $Item)
 					{ Remove-MpPreference -ControlledFolderAccessAllowedApplications $Item }
 				}
 			}

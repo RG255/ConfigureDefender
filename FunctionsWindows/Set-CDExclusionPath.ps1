@@ -7,7 +7,9 @@ Function Set-CDExclusionPath
 
 		.DESCRIPTION
 		Requires elevation - intended to run in the elevated NamedPipe server process.
-		Wildcards are supported (e.g. C:\Temp\*.tmp).
+		Wildcards are supported (e.g. C:\Temp\*.tmp). UNC paths (\\server\share\...) are allowed.
+		The path is validated when it is ADDED only: Remove must always work, so an entry that is already in the list
+		(a UNC path, or something another tool added) can still be taken out.
 
 		.PARAMETER Path
 		The file, folder, or wildcard path to add or remove.
@@ -24,13 +26,7 @@ Function Set-CDExclusionPath
 	param
 	(
 		[Parameter(Mandatory)]
-		[ValidateScript({
-				if ([string]::IsNullOrWhiteSpace($_)) { throw 'Path cannot be empty' }
-				if ($_ -like '\\*' -and -not $_.StartsWith('\\.\')) { throw 'UNC paths not allowed for exclusions' }
-				if ($_ -match '[<>"|]' -and -not $_.Contains('*')) { throw 'Invalid characters in path' }
-				if ($_.Length -gt 260) { throw 'Path exceeds Windows maximum length (260 characters)' }
-				$true
-			})]
+		[ValidateNotNullOrEmpty()]
 		[string]$Path,
 
 		[Parameter(ParameterSetName = 'Add')]
@@ -46,7 +42,13 @@ Function Set-CDExclusionPath
 	{
 		switch ($PSCmdlet.ParameterSetName)
 		{
-			'Add'    { Add-MpPreference    -ExclusionPath $Path }
+			'Add'
+			{
+				if ([string]::IsNullOrWhiteSpace($Path)) { throw 'Path cannot be empty' }
+				if ($Path -match '[<>"|\x00-\x1F]') { throw 'Invalid characters in path' }
+				if ($Path.Length -gt 260) { throw 'Path exceeds Windows maximum length (260 characters)' }
+				Add-MpPreference -ExclusionPath $Path
+			}
 			'Remove' { Remove-MpPreference -ExclusionPath $Path }
 		}
 	}

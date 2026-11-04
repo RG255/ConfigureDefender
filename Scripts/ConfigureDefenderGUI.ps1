@@ -50,7 +50,9 @@
 
 #region Module Load
 Remove-Module ConfigureDefender -Force -ErrorAction SilentlyContinue
-Import-Module ConfigureDefender -RequiredVersion 0.4 -Force -ErrorAction Stop
+# Import the module that lives NEXT TO this script (this file is in <module>\Scripts), so it always matches the version it ships with;
+# a hardcoded -RequiredVersion had to be bumped by hand on every branch and silently loaded an older copy if it was missed.
+Import-Module (Join-Path (Split-Path -Parent $PSScriptRoot) 'ConfigureDefender.psd1') -Force -ErrorAction Stop
 #endregion
 
 #region Assemblies
@@ -96,11 +98,10 @@ function Get-CDSRP
 		$WaitLbl.TextAlign = 'MiddleCenter'
 		$WaitDlg.Controls.Add($WaitLbl)
 
-		$WaitDlg.Show($Form)
-		[System.Windows.Forms.Application]::DoEvents()
-
 		try
 		{
+			$WaitDlg.Show($Form)
+			[System.Windows.Forms.Application]::DoEvents()
 			$StatusLabel.Text = 'Opening elevated session...'
 			Open-CDPipeSession
 			$SRP = Get-CDSendRequestParam
@@ -242,20 +243,33 @@ from the Windows Defender log; SAC comes from the Code Integrity log.
     earned trust - compare these against the red block rows.
 "@
 	$script:HelpForm.Controls.Add($HelpRtb)
+	$script:HelpForm.Add_FormClosed({ param($Sender, $E) $Sender.Dispose() })
 	$script:HelpForm.Show($Form)
 }
 #endregion
 
 #region Main Form
 $Form                 = New-Object System.Windows.Forms.Form
-$Form.Text            = 'Configure Defender  v0.3'
+$Form.Text            = 'Configure Defender  v{0}' -f (Get-Module ConfigureDefender).Version
 $Form.Size            = New-Object System.Drawing.Size(1080, 650)
 $Form.StartPosition   = 'CenterScreen'
 $Form.FormBorderStyle = 'Sizable'
 $Form.MaximizeBox     = $true
 
-# Close handler - always shut down the pipe session cleanly
-$Form.Add_FormClosing({
+# Close handler - always shut down the pipe session cleanly. This is FormClosed, NOT FormClosing: WinForms runs
+# FormClosing handlers in registration order, and the Events tab registers its own "turn SAC logging off" FormClosing
+# handler later. Closing the pipe in a FormClosing handler registered here (first) meant that later handler found no
+# session and silently skipped the disable. FormClosed fires after every FormClosing handler has finished.
+$Form.Add_FormClosed({
+		# Stop and dispose the SAC auto-off timer. A Windows Forms timer outlives its window: left running, it fired
+		# later inside the NEXT GUI session started from the same console and threw "You cannot call a method on a
+		# null-valued expression" into the unhandled-exception dialog.
+		if ($script:LogAllowsTimer)
+		{
+			try { $script:LogAllowsTimer.Stop(); $script:LogAllowsTimer.Dispose() }
+			catch { Write-MyCatchAudit -Source 'ConfigureDefenderGUI: stopping the SAC auto-off timer on close' -ErrorRecord $_ }
+			$script:LogAllowsTimer = $null
+		}
 		Close-CDPipeSession
 		# Auto-disable catch auditing (2026-08-20) - only when THIS launch turned it on via
 		# Start-ConfigureDefenderGUI -EnableCatchAudit, marked by this flag, so a separate manual
@@ -275,6 +289,47 @@ $StatusLabel  = New-Object System.Windows.Forms.ToolStripStatusLabel
 $StatusLabel.Text      = 'Ready'
 $StatusLabel.Spring    = $true
 $StatusBar.Items.Add($StatusLabel) | Out-Null
+
+# Keep the status bar to ONE line. Many handlers assign the raw server error text to $StatusLabel.Text; that text can
+# be thousands of characters over 100+ lines, and the auto-sizing StatusStrip grew taller than the window and covered
+# the whole GUI. Whatever is assigned is cut down to a short summary (Get-CDStatusSummary) and the full text is kept
+# as the hover tooltip.
+$StatusBar.ShowItemToolTips = $true
+$script:StatusSummarising   = $false
+$StatusLabel.Add_TextChanged({
+		# Guarded: this runs for EVERY assignment to the status bar, so a failure here must never throw into the code that
+		# set the text. On failure fall back to a plain one-line truncation and record the problem.
+		try
+		{
+			if ($script:StatusSummarising) { return }
+			$Raw   = [string]$StatusLabel.Text
+			# Shorten to 140 so the hint fits inside the window; single lines up to 220 characters are left as they are
+			$Short = Get-CDStatusSummary $Raw -MaxLength 220 -ShortenTo 140
+			if ($Short -ne $Raw)
+			{
+				$script:StatusSummarising = $true
+				try
+				{
+					$StatusLabel.ToolTipText = Get-CDStatusDetail $Raw
+					$StatusLabel.Text        = $Short + '  [hover here for the full error list]'
+				}
+				finally { $script:StatusSummarising = $false }
+			}
+			else { $StatusLabel.ToolTipText = '' }
+		}
+		catch
+		{
+			$script:StatusSummarising = $false
+			Write-MyCatchAudit -Source 'ConfigureDefenderGUI: status bar text summariser' -ErrorRecord $_
+			$Plain = ([string]$StatusLabel.Text -replace '\s+', ' ')
+			if ($Plain.Length -gt 140)
+			{
+				$script:StatusSummarising = $true
+				try { $StatusLabel.Text = $Plain.Substring(0, 137) + '...' }
+				finally { $script:StatusSummarising = $false }
+			}
+		}
+	})
 
 $HelpStatusLbl            = New-Object System.Windows.Forms.ToolStripStatusLabel
 $HelpStatusLbl.Text       = 'Help'
@@ -329,9 +384,7 @@ function Add-EmptyPlaceholder ([System.Windows.Forms.ListView]$Lv, [string]$Text
 
 #region Initial Load
 $TabControl.Add_SelectedIndexChanged({
-		$StatusLabel.Text = 'Loading...'
-		$Form.UseWaitCursor = $true
-		[System.Windows.Forms.Application]::DoEvents()
+		Enter-GuiBusy
 		try
 		{
 			switch ($TabControl.SelectedIndex)
@@ -341,14 +394,7 @@ $TabControl.Add_SelectedIndexChanged({
 				2 {
 					# Exclusions: update view from cache only - do not open the pipe until
 					# the user explicitly clicks a category button or Refresh
-					switch ($script:ExclCategory)
-					{
-						'ASR'  { Update-ExclASRView }
-						'Proc' { Update-ExclProcView }
-						'Path' { Update-ExclPathView }
-						'Ext'  { Update-ExclExtView }
-						'IP'   { Update-ExclIPView }
-					}
+					if ($script:ExclCategory) { Update-ExclView $script:ExclCategory }
 				}
 				3 { $TsBtnCFRefresh.PerformClick() }
 				4 { $TsBtnThreatRefresh.PerformClick() }
@@ -358,12 +404,11 @@ $TabControl.Add_SelectedIndexChanged({
 		}
 		finally
 		{
-			$Form.UseWaitCursor = $false
-			[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
+			Exit-GuiBusy
 		}
 	})
 $Form.Add_Shown({ $TsBtnSettingsRefresh.PerformClick() })
 #endregion
 
 # Show the form
-[System.Windows.Forms.Application]::Run($Form)
+try { [System.Windows.Forms.Application]::Run($Form) } finally { $Form.Dispose() }

@@ -1,11 +1,11 @@
-﻿#region Tab 1 - ASR Rules
+﻿#region Tab 2 - ASR Rules
 
 $TabASR = New-Tab 'ASR Rules'
 
 # Shared action handler - used by both toolbar dropdown and right-click context menu
 $ASRActionHandler = {
 	$Action   = $this.Tag
-	$Selected = @($LvASR.SelectedItems)
+	$Selected = @($LvASR.SelectedItems | Where-Object { $_.Tag -ne '$placeholder' })
 	if ($Selected.Count -eq 0) { $StatusLabel.Text = 'No rules selected.'; return }
 	try
 	{
@@ -15,7 +15,7 @@ $ASRActionHandler = {
 		foreach ($Li in $Selected)
 		{
 			$GUID = $Li.Tag
-			$SRP.DataObject = "Set-CDASRRule -GUID '$GUID' -Action $Action" | Send-Request @SRP
+			$SRP.DataObject = ('Set-CDASRRule -GUID ''{0}'' -Action {1}' -f (ConvertTo-CDEscapedArg ([string]$GUID)), $Action) | Send-Request @SRP
 			if ($SRP.DataObject.Error)
 			{
 				$ErrCount++
@@ -105,9 +105,7 @@ $TabASR.Controls.Add($LvASR)
 $TabASR.Controls.Add($ToolStripASR)
 
 $TsBtnRefresh.Add_Click({
-		$StatusLabel.Text = 'Loading...'
-		$Form.UseWaitCursor = $true
-		[System.Windows.Forms.Application]::DoEvents()
+		Enter-GuiBusy
 		$LvASR.Items.Clear()
 		try
 		{
@@ -127,8 +125,7 @@ $TsBtnRefresh.Add_Click({
 		catch { $StatusLabel.Text = 'Error loading ASR Rules: ' + $_.Exception.Message }
 		finally
 		{
-			$Form.UseWaitCursor = $false
-			[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
+			Exit-GuiBusy
 		}
 	})
 #endregion

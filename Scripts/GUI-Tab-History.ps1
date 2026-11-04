@@ -120,6 +120,7 @@ function Get-HistSinceDate
 		'Last Year'      { return (Get-Date).AddYears(-1) }
 		'Custom Date...'
 		{
+			if (-not $script:HistAskDate -and $script:HistCustomDate) { return $script:HistCustomDate }
 			$Dlg                 = New-Object System.Windows.Forms.Form
 			$Dlg.Text            = 'Select Start Date'
 			$Dlg.Size            = New-Object System.Drawing.Size(300, 130)
@@ -141,8 +142,12 @@ function Get-HistSinceDate
 			$Dlg.Controls.AddRange(@($Dtp, $BtnOk))
 			$Dlg.AcceptButton = $BtnOk
 
-			if ($Dlg.ShowDialog($Form) -eq 'OK') { return $Dtp.Value.Date }
-			return $null
+			try
+			{
+				if ($Dlg.ShowDialog($Form) -eq 'OK') { $script:HistCustomDate = $Dtp.Value.Date; $script:HistAskDate = $false; return $script:HistCustomDate }
+				return $null
+			}
+			finally { $Dlg.Dispose() }
 		}
 		default { return $null }
 	}
@@ -151,13 +156,13 @@ function Get-HistSinceDate
 
 #region State
 $script:HistLoaded = $false
+$script:HistCustomDate = $null   # the date picked last time "Custom Date..." was chosen
+$script:HistAskDate = $true       # prompt for it only when the user picks "Custom Date..." again, not on every refresh
 #endregion
 
 #region Refresh handler
 $TsBtnHistRefresh.Add_Click({
-		$StatusLabel.Text   = 'Loading...'
-		$Form.UseWaitCursor = $true
-		[System.Windows.Forms.Application]::DoEvents()
+		Enter-GuiBusy
 		try
 		{
 			$Since  = Get-HistSinceDate
@@ -168,28 +173,31 @@ $TsBtnHistRefresh.Add_Click({
 			$Rows = @(Get-CDThreatDetection @Params)
 
 			$LvHist.BeginUpdate()
-			$LvHist.Items.Clear()
-			$LvHistRes.Items.Clear()
-
-			foreach ($D in $Rows)
+			try
 			{
-				$DetStr  = if ($D.Detected) { $D.Detected.ToString('yyyy-MM-dd HH:mm') } else { '' }
-				$ProcStr = if ($D.ProcessName) { Split-Path $D.ProcessName -Leaf } else { '' }
+				$LvHist.Items.Clear()
+				$LvHistRes.Items.Clear()
 
-				$Li = New-Object System.Windows.Forms.ListViewItem($DetStr)
-				$Li.SubItems.Add([string]$D.ThreatName) | Out-Null
-				$Li.SubItems.Add([string]$D.Severity)   | Out-Null
-				$Li.SubItems.Add([string]$D.Status)     | Out-Null
-				$Li.SubItems.Add([string]$D.Action)     | Out-Null
-				$Li.SubItems.Add([string]$D.Source)     | Out-Null
-				$Li.SubItems.Add($(if ($D.User) { [string]$D.User } else { 'Unknown' })) | Out-Null
-				$Li.SubItems.Add($ProcStr)              | Out-Null
-				$Li.ForeColor = Get-HistItemColor -Status $D.Status -ActionSuccess $D.ActionSuccess -IsActive $D.IsActive
-				$Li.Tag       = $D
-				$LvHist.Items.Add($Li) | Out-Null
+				foreach ($D in $Rows)
+				{
+					$DetStr  = if ($D.Detected) { $D.Detected.ToString('yyyy-MM-dd HH:mm') } else { '' }
+					$ProcStr = if ($D.ProcessName) { Split-Path $D.ProcessName -Leaf } else { '' }
+
+					$Li = New-Object System.Windows.Forms.ListViewItem($DetStr)
+					$Li.SubItems.Add([string]$D.ThreatName) | Out-Null
+					$Li.SubItems.Add([string]$D.Severity)   | Out-Null
+					$Li.SubItems.Add([string]$D.Status)     | Out-Null
+					$Li.SubItems.Add([string]$D.Action)     | Out-Null
+					$Li.SubItems.Add([string]$D.Source)     | Out-Null
+					$Li.SubItems.Add($(if ($D.User) { [string]$D.User } else { 'Unknown' })) | Out-Null
+					$Li.SubItems.Add($ProcStr)              | Out-Null
+					$Li.ForeColor = Get-HistItemColor -Status $D.Status -ActionSuccess $D.ActionSuccess -IsActive $D.IsActive
+					$Li.Tag       = $D
+					$LvHist.Items.Add($Li) | Out-Null
+				}
+
 			}
-
-			$LvHist.EndUpdate()
+			finally { $LvHist.EndUpdate() }
 			Add-EmptyPlaceholder $LvHist 'No detections found'
 			$script:HistLoaded = $true
 			$StatusLabel.Text  = "History: $($Rows.Count) detection(s)"
@@ -197,8 +205,7 @@ $TsBtnHistRefresh.Add_Click({
 		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
 		finally
 		{
-			$Form.UseWaitCursor = $false
-			[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
+			Exit-GuiBusy
 		}
 	})
 #endregion
@@ -237,7 +244,7 @@ $LvHist.Add_SelectedIndexChanged({
 
 #region Filter/Since combo - auto-refresh when already loaded
 $TsCbHistFilter.Add_SelectedIndexChanged({ if ($script:HistLoaded) { $TsBtnHistRefresh.PerformClick() } })
-$TsCbHistSince.Add_SelectedIndexChanged({ if ($script:HistLoaded) { $TsBtnHistRefresh.PerformClick() } })
+$TsCbHistSince.Add_SelectedIndexChanged({ $script:HistAskDate = $true; if ($script:HistLoaded) { $TsBtnHistRefresh.PerformClick() } })
 #endregion
 
 #endregion

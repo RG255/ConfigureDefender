@@ -33,8 +33,14 @@ Function Open-CDPipeSession
 	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
 	# Return immediately if a healthy session already exists
-	if ($script:CDPipeInfo -and (Test-PipeSession -PipeInfo $script:CDPipeInfo))
-	{ return }
+	# CDPipeInfo is the whole ServerClientParams; the PipeInfo Test-PipeSession wants is one level down.
+	if ($script:CDPipeInfo)
+	{
+		if (Test-PipeSession -PipeInfo $script:CDPipeInfo.'PipeInfo') { return }
+		# Stale or wedged session: stop it (force-stop if needed) BEFORE replacing it. Overwriting the stored session
+		# without this orphaned the old elevated server with no way for Close-CDPipeSession to find it again.
+		Close-CDPipeSession
+	}
 
 	# Identify the running ConfigureDefender module so the elevated server loads that exact version + path.
 	# $ExecutionContext.SessionState.Module is the module that owns this function (ConfigureDefender).

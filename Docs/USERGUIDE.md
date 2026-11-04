@@ -1,4 +1,4 @@
-# ConfigureDefender Module v0.3 - User Guide
+# ConfigureDefender Module v0.4 - User Guide
 
 <!-- CONTRIBUTOR NOTE: Do NOT use em-dashes in this file. Use a regular hyphen (-) only.
      Em-dashes cause PowerShell parser errors in string literals and may be silently
@@ -21,7 +21,10 @@ Write operations that require elevation are routed through a NamedPipe elevated 
 - Inspect Defender event log (ASR and CFA violations)
 - GUI front-end with elevation via NamedPipe (no UAC prompt on each action)
 
-**Dependencies:** NamedPipe module v0.13, PowerShell 5.1+, Windows only.
+**Dependencies:** NamedPipe module v0.17 (pinned: `RequiredVersion = '0.17'` in the manifest), PowerShell 5.1+, Windows only.
+NamedPipe 0.17 checks every line sent between the GUI and the elevated server (length, an authentication code and a request id), so
+a damaged, forged or replayed message is refused with an error beginning `Pipe frame rejected`. That should never appear in normal
+use; if it does, see the NamedPipe user guide ("What's New in v0.17").
 
 ## Architecture
 

@@ -35,7 +35,7 @@ Function Get-CDAllowedApplication
 
 		if ($CheckMissing)
 		{
-			$List = $List | Where-Object { $_ -and -not (Test-Path -Path $_) }
+			$List = $List | Where-Object { Test-CDEntryMissing $_ }
 		}
 		elseif ($Like)
 		{

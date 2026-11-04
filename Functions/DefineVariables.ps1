@@ -84,6 +84,13 @@ $script:FunctionExportTable = @{
 	'Set-CDControlledFolderAccess' = $true
 	'Set-CDNetworkProtection'      = $true
 	'Set-CDCIVerbose'              = $true
+	# Internal helper for Set-CDSetting's audit entry (2026-10-17) - not for users
+	'Write-CDAuditEvent'           = $false
+	# Shared 'is this stored path really missing' rule (2026-10-17) - internal, used by the Get/Set allowed-application
+	# functions and the Allowed Applications tab
+	'Test-CDEntryMissing'          = $false
+	# Event-log reader behind Get-CDEvent (2026-10-18) - internal
+	'Read-CDEventLog'              = $false
 	# Pipe session management - GUI process only
 	'Open-CDPipeSession'           = $true
 	'Close-CDPipeSession'          = $true
@@ -108,6 +115,9 @@ $script:FunctionExportTable = @{
 	# explicit-false treatment as Write-MyCatchAudit above; Clear-MyCatchAuditArchive itself is meant to
 	# be typed at the console, so it is deliberately left OUT of this table (default $true).
 	'Invoke-FileManagement'          = $false
+	# 2026-10-17: Write-MyLog is called by Invoke-FileManagement when -LogLevel > 0; vendored so that dependency is
+	# satisfied inside this module. Internal plumbing, same explicit-false treatment as the rest of this block.
+	'Write-MyLog'                    = $false
 	# 2026-09-16: function-trace facility, full-module rollout - internal-only members need the same
 	# explicit-false treatment as Write-MyCatchAudit above; Enable-/Disable-/Clear-MyFunctionTraceLog/
 	# Clear-MyFunctionTraceArchive are meant to be typed at the console, so they default to exported by

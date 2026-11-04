@@ -57,7 +57,6 @@ Function Get-CDEvent
 		if (-not $Since)
 		{ $Since = (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime }
 
-		$Enc = [System.Text.Encoding]::UTF8
 		$Out = [System.Collections.Generic.List[object]]::new()
 
 		# =====================================================================================
@@ -72,11 +71,10 @@ Function Get-CDEvent
 				default { @(1121, 1122, 1123, 1124, 1127, 1128) }
 			}
 
-			Get-WinEvent -LogName 'Microsoft-Windows-Windows Defender/Operational' -ErrorAction SilentlyContinue |
-				Where-Object { $_.Id -in $EventIDs -and $_.TimeCreated -gt $Since } |
+			Read-CDEventLog -FilterHashtable @{ LogName = 'Microsoft-Windows-Windows Defender/Operational'; Id = $EventIDs; StartTime = $Since } |
 				ForEach-Object {
 					$EvRec   = $_
-					$Message = [string]::New($Enc.GetBytes($EvRec.Message)) -split "`n"
+					$Message = ([string]$EvRec.Message) -split '\r?\n'
 					$IsASR   = $EvRec.Id -in 1121, 1122
 
 					$Obj = [PSCustomObject][Ordered]@{
@@ -155,7 +153,7 @@ public static extern uint QueryDosDevice(string lpDeviceName, System.Text.String
 				return $p
 			}
 
-			$SacRaw = @(Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-CodeIntegrity/Operational'; Id = @(3076, 3077, 3033, 3034, 3089, 3118); StartTime = $Since } -ErrorAction SilentlyContinue)
+			$SacRaw = @(Read-CDEventLog -FilterHashtable @{ LogName = 'Microsoft-Windows-CodeIntegrity/Operational'; Id = @(3076, 3077, 3033, 3034, 3089, 3118); StartTime = $Since })
 
 			# Per-item helper (see Convert-Dev comment above) - exempt from trace/try-catch.
 			function ConvertTo-EventDataHash ($EvRecord)
@@ -346,8 +344,7 @@ public static extern uint QueryDosDevice(string lpDeviceName, System.Text.String
 			# SAC does NOT emit 3090 here. The ALLOW decision is event 3075 ("...to load X with validated
 			# <Level> signing level"); event 3088 (per-module policy test) gives the WHY (Smartlocker,
 			# Defender trust, policy). Readable even after the channel is disabled again.
-			$VerRaw = @(Get-WinEvent -LogName 'Microsoft-Windows-CodeIntegrity/Verbose' -Oldest -ErrorAction SilentlyContinue |
-					Where-Object { $_.Id -in 3075, 3088 -and $_.TimeCreated -gt $Since })
+			$VerRaw = @(Read-CDEventLog -FilterHashtable @{ LogName = 'Microsoft-Windows-CodeIntegrity/Verbose'; Id = 3075, 3088; StartTime = $Since } -Oldest)
 			$TestByFile = @{}
 			foreach ($te in ($VerRaw | Where-Object { $_.Id -eq 3088 }))
 			{

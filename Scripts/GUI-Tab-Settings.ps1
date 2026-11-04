@@ -1,4 +1,4 @@
-﻿#region Tab 9 - Settings
+﻿#region Tab 1 - Settings
 
 $TabSettings = New-Tab 'Settings'
 
@@ -66,19 +66,16 @@ function Update-SettingsView
 }
 
 $TsBtnSettingsRefresh.Add_Click({
-		$StatusLabel.Text = 'Loading...'
-		$Form.UseWaitCursor = $true
-		[System.Windows.Forms.Application]::DoEvents()
+		Enter-GuiBusy
 		try
 		{
 			$script:SettingsCache = @(Get-CDSetting)
 			Update-SettingsView
 		}
-		catch { Write-OperationError -Operation 'Get-CDSetting' -ErrorInfo $_ }
+		catch { Write-OperationError -Operation 'Get-CDSetting' -ErrorInfo $_; Write-MyCatchAudit -Source 'GUI-Tab-Settings: refreshing the settings list' -ErrorRecord $_ }
 		finally
 		{
-			$Form.UseWaitCursor = $false
-			[System.Windows.Forms.Cursor]::Current = [System.Windows.Forms.Cursors]::Default
+			Exit-GuiBusy
 		}
 	})
 
@@ -145,7 +142,7 @@ function Show-SettingEditDialog ([PSCustomObject]$Setting)
 		$Cmb.DropDownStyle = 'DropDownList'
 
 		# Populate using GetEnumerator to avoid positional int-indexer on OrderedDictionary
-		$CurrentIdx = 0; $Idx = 0
+		$CurrentIdx = -1; $Idx = 0
 		foreach ($Entry in $Setting.Options.GetEnumerator())
 		{
 			$Cmb.Items.Add("$($Entry.Value) ($($Entry.Key))") | Out-Null
@@ -154,6 +151,18 @@ function Show-SettingEditDialog ([PSCustomObject]$Setting)
 		}
 		$Cmb.SelectedIndex = $CurrentIdx
 		$Dlg.Controls.Add($Cmb)
+		if ($CurrentIdx -lt 0)
+		{
+			# The live value is not one of the choices. Controlled Folder Access, for example, can be 3 or 4 (Block /
+			# Audit Disk Modification), which this list does not offer. Preselecting the FIRST entry meant a bare OK
+			# wrote it - for that setting "Disabled". Select nothing, say so, and treat OK with no choice as no change.
+			$LblNote           = New-Object System.Windows.Forms.Label
+			$LblNote.Text      = "Current value is $($Setting.Value), which is not one of these choices. Nothing changes unless you pick one."
+			$LblNote.Location  = New-Object System.Drawing.Point(10, 85)
+			$LblNote.Size      = New-Object System.Drawing.Size(390, 36)
+			$LblNote.ForeColor = [System.Drawing.Color]::DarkRed
+			$Dlg.Controls.Add($LblNote)
+		}
 
 		$BtnOK              = New-Object System.Windows.Forms.Button
 		$BtnOK.Text         = 'OK'
@@ -176,7 +185,7 @@ function Show-SettingEditDialog ([PSCustomObject]$Setting)
 			# Get the integer key for the selected item
 			$SelIdx = $Cmb.SelectedIndex
 			$Keys   = @($Setting.Options.Keys)
-			$ResultValue = [int]$Keys[$SelIdx]
+			if ($SelIdx -ge 0) { $ResultValue = [int]$Keys[$SelIdx] }   # nothing selected = no change ($null)
 		}
 	}
 	elseif ($Setting.Type -eq 'Int')
@@ -209,6 +218,7 @@ function Show-SettingEditDialog ([PSCustomObject]$Setting)
 		{ $ResultValue = [int]$Nud.Value }
 	}
 
+	$Dlg.Dispose()
 	$ResultValue
 }
 
@@ -223,16 +233,21 @@ $LvSettings.Add_DoubleClick({
 			{
 				$SRP    = Get-CDSRP
 				$Name   = $Setting.Name
-				$ValStr = if ($NewVal -is [bool]) { if ($NewVal) { '`$true' } else { '`$false' } } else { "$NewVal" }
+				$ValStr = if ($NewVal -is [bool]) { if ($NewVal) { '$true' } else { '$false' } } else { "$NewVal" }
 				$SRP.DataObject = "Set-CDSetting -Name '$Name' -Value $ValStr" | Send-Request @SRP
-				if ($SRP.DataObject.Error)
-				{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
+				$ReqError = $SRP.DataObject.Error
+				# Never show the value we TYPED as if it were Defender's. Tamper Protection (or a policy) can accept a
+				# change without error and leave the setting alone, so re-read the real values every time - after a
+				# failure as well, so the list falls back to what Defender actually holds.
+				$script:SettingsCache = @(Get-CDSetting)
+				Update-SettingsView
+				$Now = $script:SettingsCache | Where-Object { $_.Name -eq $Name } | Select-Object -First 1
+				if ($ReqError)
+				{ $StatusLabel.Text = "Error: $ReqError" }
+				elseif ($Now -and -not (Test-CDSettingMatch $Now.Value $NewVal))
+				{ $StatusLabel.Text = "NOT applied: $($Setting.FriendlyName) is still $($Now.Value) (wanted $ValStr). Tamper Protection or a policy may be blocking the change." }
 				else
-				{
-					$Setting.Value = $NewVal
-					$StatusLabel.Text = "Set $($Setting.FriendlyName) = $ValStr"
-					Update-SettingsView
-				}
+				{ $StatusLabel.Text = "Set $($Setting.FriendlyName) = $ValStr (confirmed by re-reading Defender)." }
 			}
 			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
 		}

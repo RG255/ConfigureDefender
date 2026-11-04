@@ -4,6 +4,146 @@ All notable changes to this project will be documented in this file.
 
 ## [0.4] - 2026-09-12
 
+### Changed (2026-11-04)
+
+- Now requires NamedPipe 0.17 (was 0.16). No code change: 0.17 adds an integrity check to every pipe line (see the NamedPipe CHANGELOG) and
+  the public functions are unchanged.
+
+### Changed (2026-10-18)
+
+- The Exclusions tab is built from one table. It carried five copies of the same view, refresh, add, edit and remove code (about
+  600 lines); the five categories (ASR, Paths, Extensions, Processes, IPs) are now rows in a table and the logic is written
+  once (about 250 lines plus shared helpers), so a fix or a new category is made in one place. Behaviour is unchanged apart from
+  the fixes below. A runnable smoke test (`Tests\ConfigureDefender.ExclusionsTabSmokeTest.ps1`) drives the real tab script in an
+  invisible form with the server calls stubbed.
+- `Get-CDSetting` and `Get-CDThreatAction` are data-driven (one row per setting / severity level instead of 24 and 5 copies of
+  an object literal). The objects they return were compared field by field with the previous version on real data and are
+  identical.
+- The GUI no longer hardcodes the module version. It imports the module that sits next to it and takes the window title from
+  what it loaded, so a version branch needs nothing changed there.
+
+- The busy-cursor code that nine load handlers each repeated (status text, busy flag, repaint; and the matching reset in a
+  `finally`) is now two shared helpers, `Enter-GuiBusy` and `Exit-GuiBusy`. The handlers keep their own try/catch/finally.
+  Tests fail if a handler enters without leaving, leaves outside a `finally`, or goes back to setting the flag itself.
+
+### Fixed (2026-10-18)
+
+- The Exclusions list, the History list and the events grid could stay frozen (no repainting) if any row raised an error while the
+  list was being filled, because the update was never ended. The update is now always ended.
+- Dialogs, file and folder pickers, the Help window and the main window were never disposed. They are now.
+- A filter box that contained `[` raised a wildcard error, and `*` or `?` typed into one acted as a wildcard. Typed filters now
+  match literally and ignore case.
+- The Allowed Applications list tested every path on disk again on every keystroke in the filter box, which could freeze the
+  window for a disconnected network drive. Existence is now worked out once per refresh.
+- The ASR tab: a rule that is configured on the machine but is not in the module's list (set by policy, a newer Windows build or
+  another tool) was invisible and could not be changed; it is now listed as an unknown rule. Rule lookup no longer rebuilds a
+  list for every rule. Choosing an action with the "nothing configured" row selected no longer sends that row to the elevated
+  server; the GUID is quoted like every other value, and `Set-CDASRRule` refuses anything that is not a GUID. Adding or removing
+  all rules is one call instead of one per rule.
+- A failed load of an empty exclusion list left the status bar on "Loading..."; it now says how many entries were loaded.
+- Choosing "Custom Date..." on the History tab asked for the date again on every refresh, filter change and tab visit. It asks
+  once and again only when the "since" choice is changed.
+- When an operation failed the status bar said "Check logs" without saying where; it now names the log file.
+- Two refresh handlers left the busy mouse cursor showing after they finished.
+- The tab comments were numbered out of order; they now run 1 to 7.
+- Module start-up: when a file failed to load, the report named the OLDEST error in the session (often unrelated) instead of the
+  one that actually happened, and could itself fail while reporting. It now names the real file, line and statement. A function
+  file that did not define its function is a visible warning instead of a message that does not show in non-interactive hosts, a
+  variable that fails to create now stops the import instead of leaving a half-initialised module, and an unused routine that
+  referred to variables that do not exist was removed.
+
+### Added (2026-10-17)
+
+- Vendored `Write-MyLog`. The vendored `Invoke-FileManagement` calls it when a log level above 0 is requested, and
+  nothing in the module supplied it. Nothing passes a log level today, so this closes a latent gap rather than a live
+  defect. Internal only; not exported.
+
+### Fixed (2026-10-17)
+
+- Values typed into the GUI (paths, process names, extensions, IP addresses) are now quoted safely before they are
+  sent to the elevated server. Only the plain apostrophe was escaped before; PowerShell also treats the curly single
+  quotes (U+2018, U+2019, U+201A, U+201B) as quotes, so a path containing one broke the command. A shared helper now
+  escapes all of them and refuses control characters.
+- Editing a Boolean setting from the Settings tab sent the text `` `$true `` / `` `$false `` and failed. It now sends a
+  real `$true` / `$false`, and `Set-CDSetting` also accepts those words as text and converts them.
+- `Set-CDSetting` now stops on a Defender error (it could report success after a non-terminating failure) and writes
+  its Application event log entry through the .NET EventLog class. `Write-EventLog` does not exist in PowerShell 7
+  and the `ConfigureDefender` event source was never registered, so the entry was not being written on either host.
+  The source is now registered on first use, from the elevated server.
+- The "turn Smart App Control allow logging off when the GUI closes" step could never run, because the main window
+  closed the elevated session first. The session is now closed after every other close handler has finished.
+- Editing an exclusion, allowed application or protected entry now adds the new value before removing the old one, so
+  a failed add leaves the original in place instead of losing it. The list is refreshed either way.
+- A setting change that Defender silently ignored was reported as a success. With Tamper Protection on (or a policy in
+  force) `Set-MpPreference` returns without an error and leaves the value alone, so `Set-CDSetting` wrote its audit entry
+  and the Settings tab showed the value that had been typed. `Set-CDSetting` now reads the value back and fails with a
+  clear message when it did not change, and the Settings tab re-reads every setting from Defender after each edit
+  (success or failure) and says whether the change was confirmed or NOT applied.
+- UNC paths (`\\server\share\...`) are now allowed as path exclusions. `Set-CDExclusionPath` used to refuse them while the
+  GUI said they were valid, and its check ran on Remove as well, so a UNC entry already in the list could never be taken
+  out. The path is now checked on Add only, and the rule that let `<` through whenever the path also contained `*` is
+  gone. The Browse buttons use the same rule as typed input (they had a third, stricter rule and reported a rejection
+  where nobody could see it).
+- `-RemoveMissing`, `-CheckMissing` and the Allowed Applications tab now share one cautious "is this path really gone"
+  rule. `Test-Path -Path` read `[` and `]` in a folder name as a wildcard, so a working entry such as
+  `C:\Apps\Tool[1]\tool.exe` looked missing and `-RemoveMissing` removed it. The path is now tested literally,
+  environment variables are expanded first, and wildcard entries, unexpandable variables and any error count as not
+  missing, so doubt never deletes an entry.
+- The setting edit dialog no longer preselects its first choice when the live value is not one of the choices. Controlled
+  Folder Access can be 3 or 4 (Block / Audit Disk Modification), which the list does not offer, so pressing OK wrote 0
+  (Disabled). It now selects nothing, says so, and OK with no choice changes nothing.
+- Turning Smart App Control allow logging off by hand, or at the start-up prompt, said "OFF" without checking the result
+  of the request, so a failed disable looked like success while the high-volume channel kept logging. Both now check the
+  result, keep the toggle showing ON and warn when it failed (the auto-off timer already did).
+- The Smart App Control auto-off timer outlived its window. A Windows Forms timer keeps running after the form that
+  created it closes, so a timer left running from one GUI session fired later inside the NEXT session started from the same
+  console and showed the "Unhandled exception - You cannot call a method on a null-valued expression" dialog. Closing the
+  window now stops and disposes the timer, the tick handler can no longer throw into Windows Forms (any failure is shown on the
+  status bar and written to the catch audit), and it now checks that the disable really worked. The status bar's text
+  summariser is guarded the same way.
+- Turning Smart App Control allow logging on or off wrote two entries to the catch audit every time. The CodeIntegrity
+  Verbose channel only ever allows its default (Retain) mode and always refuses Circular ("The parameter is incorrect."),
+  and the code deliberately tries that change anyway in case a future build allows it. That known refusal is no longer
+  recorded; any other failure at those two steps still is.
+- The Allowed Applications list failed with "The term 'Test-CDEntryMissing' is not recognized". The GUI removes and re-imports
+  the module as its first step, after which it can see only the module's exported functions, but it called two internal ones:
+  `Test-CDEntryMissing` and `Write-MyCatchAudit`. The latter was called from seven `catch` blocks in the GUI scripts (one old,
+  six new), where a failing audit call would itself have raised the same error. The GUI now defines forwarders with the same
+  names that call into the module, so the call sites are unchanged, and a test fails if any GUI script calls an internal
+  function that has no forwarder.
+- Event messages were mangled before they were parsed. `Get-CDEvent` turned each Defender event message into bytes and back with
+  `[string]::New(bytes)`, which does not decode UTF-8, so any non-ASCII character in a path came out as the wrong characters
+  (`José` became `JosÃ©`). The corrupted path then pre-filled the "Add as Exclusion" dialog, so the exclusion could have been
+  created for a path that does not exist. A missing message also threw. The message is now used as the text it already is.
+- `Get-CDEvent` read every event in a log and filtered afterwards, and hid read failures. The event IDs and start time now go
+  into the query itself (ASR/CFA reads went from about 2.2 s to about 0.05 s on a real log; the CodeIntegrity Verbose channel,
+  up to 128 MB, is no longer read end to end). "No events matched" and "that log does not exist" still give an empty list, but
+  a real failure such as access denied is now an error, so the GUI's own error handling for a failed read can finally run
+  instead of showing an empty list. Results were checked identical to the previous version on a real machine.
+- A failed request could make the GUI unusable. The server returns its whole error history as text (thousands of
+  characters over a hundred lines or more); 34 places put that straight into the status bar, and the auto-sizing
+  status strip grew taller than the window and covered everything. The status bar now always shows a one-line summary
+  (the caller's message plus the real cause) followed by "[hover here for the full error list]", and the hover tooltip
+  lists every error message in the dump, numbered, without the stack traces (the full dump stays in the console).
+- `Open-CDPipeSession` now closes a stale or wedged session (force-stopping its server) before it starts a
+  replacement, instead of leaving the old elevated server running with no way to reach it.
+
+### Changed (2026-10-12)
+
+- Now requires NamedPipe 0.16 (was 0.15). 0.16 can start the hidden elevated server from Windows PowerShell 5.1
+  (0.15 could not, because `Start-Process -WhatIf` does not exist there) and lets a hung request be cancelled from
+  the non-elevated client.
+
+### Fixed (2026-10-12)
+
+- Closing the GUI (or `Close-CDPipeSession`) left the hidden elevated NamedPipe server running. The session health
+  check was given the wrong object (the whole server/client parameter set instead of its `PipeInfo`), so it always
+  reported "not connected" and no exit request was ever sent. `Close-CDPipeSession` now passes the right object and,
+  when the normal exit cannot be delivered, force-stops the server (NamedPipe 0.16 `Stop-PipeSession -Force`).
+- `Open-CDPipeSession` had the same wrong object in its "healthy session already exists" check, so it never reused a
+  session and started a new elevated server on every call. It now reuses a healthy session.
+- The GUI window title showed v0.3; it now shows v0.4.
+
 ### Added (2026-09-20 follow-up)
 
 - Function-trace facility (`Enable-MyFunctionTrace -Option 1-3`, `Disable-MyFunctionTrace`,

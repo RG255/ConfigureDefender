@@ -20,30 +20,6 @@
 #>
 try
 {
-	Function Publish-CustomXML
-	{
-		ForEach ($Item in ($MyCustomXML.GetEnumerator() | Sort-Object -Property key).Name)
-		{
-			$XMLItem = (Join-Path -Path $ModuleScriptRoot -ChildPath ('Functions{0}\{1}' -f $Option, $MyCustomXML[$Item].file))
-			If (Test-Path -Path $XMLItem)
-			{
-				Switch ($MyCustomXML[$Item].Action)
-				{
-					'Update-FormatData'
-					{
-						Switch ($MyCustomXML[$Item].Option)
-						{
-							'Prependpath' { Update-FormatData -PrependPath $XMLItem -ErrorAction Stop }
-							'Appendpath'  { Update-FormatData -AppendPath  $XMLItem -ErrorAction Stop }
-						}
-					}
-					Default
-					{ 'Unknown item in MyCustomXML: [{0}] Option: [{1}]' -f $Item, $MyCustomXML[$Item].Option | Write-Warning }
-				}
-			}
-		}
-	}
-
 	Function Initialize-Folder
 	{
 		[CmdletBinding()]
@@ -73,7 +49,7 @@ try
 					{
 						$Params = @{ Name = $Item; Scope = $Variables[$VarSet][$Item].Scope }
 						If ($Params.Scope -inotmatch $VOConstant)
-						{ Remove-Variable @Params -Force }
+						{ Remove-Variable @Params -Force -WhatIf:$false }
 					}
 					$Params = @{
 						Name   = $Item
@@ -81,7 +57,18 @@ try
 						Option = $Variables[$VarSet][$Item].Option
 						Scope  = $Variables[$VarSet][$Item].Scope
 					}
-					New-Variable @Params -ErrorAction Stop
+					# -WhatIf:$false on BOTH this and the Remove-Variable above (2026-09-27; same defect found
+					# live in NamedPipe 0.15 and fixed across every live module the same day). New-Variable and
+					# Remove-Variable honour ShouldProcess, so they inherit $WhatIfPreference - which is set for
+					# the WHOLE SCOPE, including everything downstream, as soon as any caller runs a
+					# SupportsShouldProcess script with -WhatIf. The module then IMPORTS BUT DOES NOT
+					# INITIALISE: every variable skipped, Export-ModuleMember throwing on each missing one, and
+					# the failure finally surfacing as a bogus "X is not recognized" - a half-loaded module
+					# masquerading as a missing function.
+					#
+					# Creating a module's OWN internal variables at import time is not a user-visible state
+					# change that -WhatIf should ever preview.
+					New-Variable @Params -ErrorAction Stop -WhatIf:$false
 					Export-ModuleMember -Variable $Item -ErrorAction Stop
 					If ($VInfoOn)
 					{ Write-Information -MessageData ('Variable:[{0}] created' -f $Item) -InformationAction Continue }
@@ -90,7 +77,8 @@ try
 		}
 		Catch
 		{
-			Write-Information -MessageData ('Variable:[{0}] failed to create' -f $Item) -InformationAction Continue
+			Write-Warning ('Variable:[{0}] failed to create: {1}' -f $Item, $_.Exception.Message)
+			throw
 		}
 	}
 
@@ -129,14 +117,14 @@ try
 }
 catch
 {
-	$NumberOfErrors = [int]$Global:Error.count
-	$ErrorNumber    = $NumberOfErrors - 1
+	$Err   = $_
+	$Where = if ($PSD1Data -and $PSD1Data.RootModule) { Join-Path -Path $ModuleScriptRoot -ChildPath $PSD1Data.RootModule } else { $PSD1Path }
 	'{1}{1}An error occurred while processing: [{0}]{1}{1}Message      : [{2}]{1}Command Path : [{3}]{1}Line No.     : [{4}]{1}Failing Line : [{5}]{1}{1}' -f `
-		(Join-Path -Path $ModuleScriptRoot -ChildPath $PSD1Data.RootModule), "`r`n",
-		($Global:Error[$ErrorNumber].Exception.Message).Replace("`r`n", ''),
-		$Global:Error[$ErrorNumber].InvocationInfo.PSCommandPath,
-		$Global:Error[$ErrorNumber].InvocationInfo.ScriptLineNumber,
-		($Global:Error[$ErrorNumber].InvocationInfo.Line).Trim() | Write-Warning
+		$Where, "`r`n",
+		([string]$Err.Exception.Message).Replace("`r`n", ' '),
+		$Err.InvocationInfo.PSCommandPath,
+		$Err.InvocationInfo.ScriptLineNumber,
+		([string]$Err.InvocationInfo.Line).Trim() | Write-Warning
 	throw 'Unable to retrieve required data from: [{0}]' -f $PSD1Path
 }
 
@@ -163,7 +151,7 @@ try
 	{
 		. $Item.FullName
 		if (-not (Get-Command $Item.BaseName -CommandType Function, Filter -ErrorAction SilentlyContinue))
-		{ Write-Host "Function [$($Item.BaseName)] was NOT created by [$($Item.Name)]" }
+		{ Write-Warning "Function [$($Item.BaseName)] was NOT created by [$($Item.Name)]" }
 		else
 		{
 			$funcName     = $Item.BaseName
@@ -193,7 +181,7 @@ try
 			{
 				. $Item.FullName
 				if (-not (Get-Command $Item.BaseName -CommandType Function, Filter -ErrorAction SilentlyContinue))
-				{ Write-Host "Function [$($Item.BaseName)] was NOT created by [$($Item.Name)]" }
+				{ Write-Warning "Function [$($Item.BaseName)] was NOT created by [$($Item.Name)]" }
 				else
 				{
 					$funcName     = $Item.BaseName
@@ -211,14 +199,14 @@ try
 }
 catch
 {
-	$NumberOfErrors = [int]$Global:Error.count
-	$ErrorNumber    = $NumberOfErrors - 1
+	$Err   = $_
+	$Where = if ($PSD1Data -and $PSD1Data.RootModule) { Join-Path -Path $ModuleScriptRoot -ChildPath $PSD1Data.RootModule } else { $PSD1Path }
 	'{1}{1}An error occurred while processing: [{0}]{1}{1}Message      : [{2}]{1}Command Path : [{3}]{1}Line No.     : [{4}]{1}Failing Line : [{5}]{1}{1}' -f `
-		(Join-Path -Path $ModuleScriptRoot -ChildPath $PSD1Data.RootModule), "`r`n",
-		($Global:Error[$ErrorNumber].Exception.Message).Replace("`r`n", ''),
-		$Global:Error[$ErrorNumber].InvocationInfo.PSCommandPath,
-		$Global:Error[$ErrorNumber].InvocationInfo.ScriptLineNumber,
-		($Global:Error[$ErrorNumber].InvocationInfo.Line).Trim() | Write-Warning
+		$Where, "`r`n",
+		([string]$Err.Exception.Message).Replace("`r`n", ' '),
+		$Err.InvocationInfo.PSCommandPath,
+		$Err.InvocationInfo.ScriptLineNumber,
+		([string]$Err.InvocationInfo.Line).Trim() | Write-Warning
 	throw 'Unable to initialise module: {0}' -f $ModuleName
 }
 

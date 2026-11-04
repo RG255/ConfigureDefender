@@ -1,4 +1,4 @@
-﻿#region Tab 7 - Controlled Folders
+﻿#region Tab 4 - Controlled Folders
 $TabCF = New-Tab 'Controlled Folders'
 
 # SplitContainer: top = protected folders, bottom = allowed apps (collapsed by default)
@@ -60,9 +60,7 @@ $SplitCF.Panel1.Controls.Add($LvCF)
 $SplitCF.Panel1.Controls.Add($ToolStripCF)
 
 $TsBtnCFRefresh.Add_Click({
-		$StatusLabel.Text = 'Loading...'
-		$Form.UseWaitCursor = $true
-		[System.Windows.Forms.Application]::DoEvents()
+		Enter-GuiBusy
 		$LvCF.Items.Clear()
 		try
 		{
@@ -73,7 +71,7 @@ $TsBtnCFRefresh.Add_Click({
 			$StatusLabel.Text = "Controlled Folders loaded ($(@($Folders).Count) entries)."
 		}
 		catch { $StatusLabel.Text = 'Error loading Controlled Folders: ' + $_.Exception.Message }
-		finally { $Form.UseWaitCursor = $false }
+		finally { Exit-GuiBusy }
 		if (-not $SplitCF.Panel2Collapsed) { $TsBtnAppsRefresh.PerformClick() }
 	})
 
@@ -81,13 +79,15 @@ $TsBtnCFAdd.Add_Click({
 		$FBD = New-Object System.Windows.Forms.FolderBrowserDialog
 		$FBD.Description         = 'Select a folder to protect with Controlled Folder Access'
 		$FBD.ShowNewFolderButton = $false
-		if ($FBD.ShowDialog($Form) -eq 'OK')
+		$FbdOk = $false; $FbdPath = $null
+		try { $FbdOk = ($FBD.ShowDialog($Form) -eq 'OK'); $FbdPath = $FBD.SelectedPath } finally { $FBD.Dispose() }
+		if ($FbdOk)
 		{
-			$F = $FBD.SelectedPath
+			$F = $FbdPath
 			try
 			{
 				$SRP     = Get-CDSRP
-				$Escaped = $F -replace "'", "''"
+				$Escaped = ConvertTo-CDEscapedArg $F
 				$SRP.DataObject = "Set-CDControlledFolder -Folder '$Escaped' -Add" | Send-Request @SRP
 				if ($SRP.DataObject.Error)
 				{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
@@ -109,7 +109,7 @@ $TsBtnCFRemove.Add_Click({
 			foreach ($Li in $Selected)
 			{
 				$F       = $Li.Text
-				$Escaped = $F -replace "'", "''"
+				$Escaped = ConvertTo-CDEscapedArg $F
 				$SRP.DataObject = "Set-CDControlledFolder -Folder '$Escaped' -Remove" | Send-Request @SRP
 				if ($SRP.DataObject.Error)
 				{ $ErrCount++; $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
@@ -184,10 +184,11 @@ function Update-AllowedAppsView
 	$LvApps.Items.Clear()
 	if (-not $script:AllowedAppsCache) { Add-EmptyPlaceholder $LvApps; return }
 	$Filter = $AppsFilterBox.Text.Trim()
-	$ToShow = if ($Filter) { $script:AllowedAppsCache | Where-Object { $_ -ilike "*$Filter*" } } else { $script:AllowedAppsCache }
+	$ToShow = if ($Filter) { $script:AllowedAppsCache | Where-Object { ([string]$_).IndexOf($Filter, [StringComparison]::OrdinalIgnoreCase) -ge 0 } } else { $script:AllowedAppsCache }
 	foreach ($A in $ToShow)
 	{
-		$Exists = Test-Path -Path $A
+		# Existence was worked out ONCE when the list was refreshed (a disk or network path can be slow); a filter keystroke must not redo it
+		$Exists = -not ($script:AllowedAppsMissing -and $script:AllowedAppsMissing[[string]$A])
 		$Li     = New-Object System.Windows.Forms.ListViewItem($(if ($Exists) { 'OK' } else { 'Missing' }))
 		$Li.SubItems.Add($A) | Out-Null
 		$Li.ForeColor = if ($Exists) { [System.Drawing.Color]::Black } else { [System.Drawing.Color]::Red }
@@ -200,9 +201,7 @@ function Update-AllowedAppsView
 }
 
 $TsBtnAppsRefresh.Add_Click({
-		$StatusLabel.Text = 'Loading...'
-		$Form.UseWaitCursor = $true
-		[System.Windows.Forms.Application]::DoEvents()
+		Enter-GuiBusy
 		try
 		{
 			$SRP = Get-CDSRP
@@ -210,10 +209,12 @@ $TsBtnAppsRefresh.Add_Click({
 			if ($SRP.DataObject.Error)
 			{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)"; return }
 			$script:AllowedAppsCache = @($SRP.DataObject.Result)
+			$script:AllowedAppsMissing = @{}
+			foreach ($AppPath in $script:AllowedAppsCache) { if ($AppPath) { $script:AllowedAppsMissing[[string]$AppPath] = [bool](Test-CDEntryMissing $AppPath) } }
 			Update-AllowedAppsView
 		}
 		catch { $StatusLabel.Text = 'Error loading Allowed Applications: ' + $_.Exception.Message }
-		finally { $Form.UseWaitCursor = $false }
+		finally { Exit-GuiBusy }
 	})
 
 $AppsFilterBox.Add_TextChanged({ Update-AllowedAppsView })
@@ -248,7 +249,7 @@ function Show-AllowedAppDialog ([string]$Title, [string]$Initial = '')
 			$OFD        = New-Object System.Windows.Forms.OpenFileDialog
 			$OFD.Title  = 'Select an application'
 			$OFD.Filter = 'Executable files (*.exe)|*.exe|All files (*.*)|*.*'
-			if ($OFD.ShowDialog() -eq 'OK') { $Txt.Text = $OFD.FileName }
+			try { if ($OFD.ShowDialog() -eq 'OK') { $Txt.Text = $OFD.FileName } } finally { $OFD.Dispose() }
 		})
 	$Dlg.Controls.Add($BtnBrowse)
 
@@ -268,7 +269,7 @@ function Show-AllowedAppDialog ([string]$Title, [string]$Initial = '')
 	$Dlg.Controls.Add($BtnCnl)
 	$Dlg.CancelButton    = $BtnCnl
 
-	if ($Dlg.ShowDialog($Form) -eq 'OK' -and $Txt.Text.Trim()) { $Txt.Text.Trim() } else { $null }
+	try { if ($Dlg.ShowDialog($Form) -eq 'OK' -and $Txt.Text.Trim()) { $Txt.Text.Trim() } else { $null } } finally { $Dlg.Dispose() }
 }
 
 $TsBtnAppsAdd.Add_Click({
@@ -285,7 +286,7 @@ $TsBtnAppsAdd.Add_Click({
 			try
 			{
 				$SRP     = Get-CDSRP
-				$Escaped = $A -replace "'", "''"
+				$Escaped = ConvertTo-CDEscapedArg $A
 				$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add" | Send-Request @SRP
 				if ($SRP.DataObject.Error)
 				{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
@@ -313,12 +314,14 @@ $LvApps.Add_DoubleClick({
 			try
 			{
 				$SRP    = Get-CDSRP
-				$EscOld = $OldPath -replace "'", "''"
-				$EscNew = $NewPath -replace "'", "''"
-				$SRP.DataObject = "Set-CDAllowedApplication -Path '$EscOld' -Remove" | Send-Request @SRP
-				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error removing old entry: $($SRP.DataObject.Error)"; return }
+				$EscOld = ConvertTo-CDEscapedArg $OldPath
+				$EscNew = ConvertTo-CDEscapedArg $NewPath
+				# Add the new entry FIRST: if it fails the original is untouched. Removing first lost the
+				# original whenever the add then failed.
 				$SRP.DataObject = "Set-CDAllowedApplication -Path '$EscNew' -Add" | Send-Request @SRP
-				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new entry: $($SRP.DataObject.Error)"; return }
+				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new entry (old entry left as it was): $($SRP.DataObject.Error)"; return }
+				$SRP.DataObject = "Set-CDAllowedApplication -Path '$EscOld' -Remove" | Send-Request @SRP
+				if ($SRP.DataObject.Error) { $StatusLabel.Text = "New entry added, but the old one could not be removed: $($SRP.DataObject.Error)" }
 				$TsBtnAppsRefresh.PerformClick()
 			}
 			catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
@@ -336,7 +339,7 @@ $TsBtnAppsRemove.Add_Click({
 			foreach ($Li in $Selected)
 			{
 				$A       = $Li.SubItems[1].Text
-				$Escaped = $A -replace "'", "''"
+				$Escaped = ConvertTo-CDEscapedArg $A
 				$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Remove" | Send-Request @SRP
 				if ($SRP.DataObject.Error)
 				{ $ErrCount++; $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
