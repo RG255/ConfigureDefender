@@ -24,6 +24,10 @@ BeforeAll {
 	Remove-Module -Name ConfigureDefender -Force -ErrorAction SilentlyContinue
 	Import-Module "$Script:ModulePath\ConfigureDefender.psd1" -Force
 
+	# Fingerprint of the machine's real persisted catch-audit log; the last Describe fails if the suite changed it.
+	$Script:CatchAuditPath = Join-Path -Path ([Environment]::GetFolderPath('CommonApplicationData')) -ChildPath 'CatchAudit\CatchAudit.jsonl'
+	$Script:CatchAuditHashBefore = if (Test-Path -LiteralPath $Script:CatchAuditPath) { (Get-FileHash -LiteralPath $Script:CatchAuditPath -Algorithm SHA256).Hash } else { 'ABSENT' }
+
 	# Shared mock MpPreference used across multiple test blocks
 	$Script:MpPref = [PSCustomObject]@{
 		AttackSurfaceReductionRules_Ids               = @('be9ba2d9-53ea-4cdc-84e5-9b1eeee46550')
@@ -171,7 +175,8 @@ Describe 'Get-CDThreatDetection' {
 	}
 
 	It 'writes nothing to the catch audit for a large ID' {
-		Clear-MyCatchAuditLog -ErrorAction SilentlyContinue
+		# In-memory list only. Clear-MyCatchAuditLog would MOVE the machine's real persisted CatchAudit.jsonl to an archive.
+		$null = Get-MyCatchAuditLog -Clear
 		$null = Get-CDThreatDetection
 		@(Get-MyCatchAuditLog | Where-Object { $_.Source -like '*Get-CDThreatDetection*' }).Count | Should -Be 0
 	}
@@ -2040,5 +2045,14 @@ Describe 'Busy cursor helpers' {
 				($Name + ' line ' + $C.Extent.StartLineNumber + ': ' + $InFinally) | Should -BeExactly ($Name + ' line ' + $C.Extent.StartLineNumber + ': True')
 			}
 		}
+	}
+}
+
+# ============================================================
+# Keep this Describe LAST: it proves the run left the machine's real persisted catch-audit log alone.
+Describe 'Suite hygiene' {
+	It 'leaves the persisted catch-audit log (CatchAudit.jsonl) unchanged' {
+		$After = if (Test-Path -LiteralPath $Script:CatchAuditPath) { (Get-FileHash -LiteralPath $Script:CatchAuditPath -Algorithm SHA256).Hash } else { 'ABSENT' }
+		$After | Should -BeExactly $Script:CatchAuditHashBefore
 	}
 }

@@ -7,6 +7,12 @@ All notable changes to this project will be documented in this file.
 Everything below, up to the [0.4] heading, was made after the published `v0.4` tag (commit 95586e2, 2026-09-21). The module version is
 now 0.5 so that the tag, the manifest and the version folder agree; the code is the same as the last 0.4 build.
 
+### Fixed (2026-11-06)
+
+- The test suite no longer moves the machine's real persisted catch-audit log to an archive. One test cleared the log with
+  `Clear-MyCatchAuditLog`, which archives the real file; it now clears only the in-memory list. A new final test fails if the
+  persisted log's hash changed during the run. The suite is 210 tests, and is unchanged for users of the module.
+
 ### Changed (2026-11-04)
 
 - Now requires NamedPipe 0.17 (was 0.16). No code change: 0.17 adds an integrity check to every pipe line (see the NamedPipe CHANGELOG) and

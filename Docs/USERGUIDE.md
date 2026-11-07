@@ -53,7 +53,8 @@ Set-CDNetworkProtection ----via pipe------> Set-MpPreference         [admin]
 
 The elevated server is started once on the first admin operation and persists for the
 lifetime of the GUI session. The GUI calls `Open-CDPipeSession` to start it and
-`Close-CDPipeSession` (in the FormClosing event) to shut it down.
+`Close-CDPipeSession` (in the FormClosed event, so that every FormClosing handler, such as the one that
+turns Smart App Control allow logging off, finishes first) to shut it down.
 
 ## Quick Start
 
@@ -578,7 +579,7 @@ $SRP.DataObject = 'Set-CDASRRule -GUID "..." -Action Blocked' |
     Send-Request @SRP -NoExitOnError
 if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 
-# In Form.Add_FormClosing event (already wired in main file):
+# In Form.Add_FormClosed event (already wired in main file):
 Close-CDPipeSession
 ```
 
@@ -591,7 +592,18 @@ Invoke-Pester -Path .\Tests\ConfigureDefender.Tests.ps1 -Output Detailed
 
 Tests do not require elevation and do not modify Defender configuration.
 All Defender cmdlets (`Get-MpPreference`, `Set-MpPreference`, `Add-MpPreference`,
-`Remove-MpPreference`) are mocked.
+`Remove-MpPreference`) are mocked. The suite (210 tests at 0.5) runs under Windows PowerShell 5.1 and PowerShell 7 (Pester 5).
+It does not touch the persisted catch-audit log (`CatchAudit.jsonl` under the common application data folder): the last test
+fails if that file's hash changed during the run.
+
+An extra runnable check of the Exclusions tab (it drives the real tab script in an invisible form, no Defender access):
+
+```powershell
+.\Tests\ConfigureDefender.ExclusionsTabSmokeTest.ps1     # exit code 0 = all checks passed
+```
+
+`Tests\ConfigureDefender.IntegrationTests.ps1` is different: it changes real Defender settings and needs one UAC prompt.
+Run it only on a machine where that is acceptable.
 
 ## MpPreference Properties Not Implemented
 
