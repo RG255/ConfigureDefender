@@ -308,8 +308,9 @@ $TsBtnEvAdd.Add_Click({
 				try
 				{
 					$SRP     = Get-CDSRP
+					if (-not (Confirm-AllowedAppPath $ProcName)) { $StatusLabel.Text = 'Not added: the path was refused or not confirmed.'; return }
 					$Escaped = ConvertTo-CDEscapedArg $ProcName
-					$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add" | Send-Request @SRP
+					$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add -Force" | Send-Request @SRP
 					if ($SRP.DataObject.Error)
 					{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 					else

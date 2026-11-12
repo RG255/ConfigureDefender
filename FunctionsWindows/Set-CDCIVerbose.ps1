@@ -21,7 +21,8 @@ Function Set-CDCIVerbose
 		manifest LogMode = Retain and rejects Circular, so it STOPS when full - hence the large cap) is
 		done as separate, best-effort saves; if the channel rejects them the default 1 MB stands and
 		logging still works. On enable a watchdog scheduled task
-		(runs as SYSTEM) is registered that disables the channel again then self-deletes - always with an
+		(runs as SYSTEM, registered BEFORE the channel is switched on, and removed again if the switch-on fails)
+		disables the channel again then self-deletes - always with an
 		AtStartup trigger (so a reboot turns it off even after a GUI crash), plus a timed trigger when
 		-WatchdogMinutes is given. On disable the default cap is restored and the watchdog removed.
 
@@ -79,28 +80,16 @@ Function Set-CDCIVerbose
 		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.MaximumSizeInBytes = 134217728; $C.SaveChanges() } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): widen MaximumSizeInBytes to 128MB' -ErrorRecord $_ }
 		try { $C = Get-WinEvent -ListLog $Channel -ErrorAction Stop; $C.LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Circular; $C.SaveChanges() } catch { If ($_.Exception.Message -notmatch 'The parameter is incorrect') { Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): set LogMode Circular' -ErrorRecord $_ } }   # this channel is Retain-only and ALWAYS refuses Circular; only an unexpected failure is worth recording
 
-		# Critical: enable the channel (its own SaveChanges). Same fail-loud-but-audited treatment as
-		# the -Disable branch above.
-		try
-		{
-			$On = Get-WinEvent -ListLog $Channel -ErrorAction Stop
-			$On.IsEnabled = $true
-			$On.SaveChanges()
-		}
-		catch
-		{
-			Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): enable channel' -ErrorRecord $_
-			throw
-		}
-
-		# (Re)register the watchdog: AtStartup always, plus a timed trigger when requested. The action
-		# disables the channel again and deletes the task; it runs even if the GUI is killed. A failure
-		# here means the channel is on with NO safety net, so this is also fail-loud-but-audited.
+		# Critical: register the watchdog BEFORE the channel is switched on, so the channel is never on with no safety
+		# net: if registering fails nothing has been enabled yet. AtStartup always, plus a timed trigger when requested.
+		# The action disables the channel again and deletes the task; it runs even if the GUI is killed, and names every
+		# program by its full System32 path rather than searching PATH as SYSTEM.
 		try
 		{
 			Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
-			$WdCmd = "wevtutil sl '$Channel' /e:false; schtasks /delete /tn '$TaskName' /f"
-			$Act   = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -WindowStyle Hidden -Command "{0}"' -f $WdCmd)
+			$Sys32 = Join-Path -Path $env:SystemRoot -ChildPath 'System32'
+			$WdCmd = "& '$Sys32\wevtutil.exe' sl '$Channel' /e:false; & '$Sys32\schtasks.exe' /delete /tn '$TaskName' /f"
+			$Act   = New-ScheduledTaskAction -Execute "$Sys32\WindowsPowerShell\v1.0\powershell.exe" -Argument ('-NoProfile -WindowStyle Hidden -Command "{0}"' -f $WdCmd)
 			$Trg   = @(New-ScheduledTaskTrigger -AtStartup)
 			if ($WatchdogMinutes -gt 0) { $Trg += New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes($WatchdogMinutes) }
 			$Prn   = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
@@ -111,7 +100,24 @@ Function Set-CDCIVerbose
 			Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): register watchdog scheduled task' -ErrorRecord $_
 			throw
 		}
+
+		# Critical: enable the channel (its own SaveChanges). Same fail-loud-but-audited treatment as the -Disable branch
+		# above; if it fails the watchdog just registered has nothing to guard, so it is removed again.
+		try
+		{
+			$On = Get-WinEvent -ListLog $Channel -ErrorAction Stop
+			$On.IsEnabled = $true
+			$On.SaveChanges()
+		}
+		catch
+		{
+			Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): enable channel' -ErrorRecord $_
+			try { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue } catch { Write-MyCatchAudit -Source 'Set-CDCIVerbose (enable): remove watchdog after the channel failed to enable' -ErrorRecord $_ }
+			throw
+		}
 	}
+
+	Write-CDAuditEvent -EventId 4009 -Message ("Smart App Control allow logging (Code Integrity verbose channel) {0}{1}" -f $(if ($Disable) { 'disabled' } else { 'enabled' }), $(if (-not $Disable -and $WatchdogMinutes -gt 0) { " (auto-off in $WatchdogMinutes minutes and at next start)" } elseif (-not $Disable) { ' (auto-off at next start)' } else { '' }))
 
 	try
 	{

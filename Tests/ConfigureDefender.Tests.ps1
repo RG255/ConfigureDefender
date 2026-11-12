@@ -28,6 +28,17 @@ BeforeAll {
 	$Script:CatchAuditPath = Join-Path -Path ([Environment]::GetFolderPath('CommonApplicationData')) -ChildPath 'CatchAudit\CatchAudit.jsonl'
 	$Script:CatchAuditHashBefore = if (Test-Path -LiteralPath $Script:CatchAuditPath) { (Get-FileHash -LiteralPath $Script:CatchAuditPath -Algorithm SHA256).Hash } else { 'ABSENT' }
 
+	# Same idea for the spill folder and the Application event log: the suite must write to neither.
+	$Script:SpillPath = Join-Path -Path ([Environment]::GetFolderPath('CommonApplicationData')) -ChildPath 'CatchAudit\Spill'
+	$Script:GetSpillList = { if (Test-Path -LiteralPath $Script:SpillPath) { (@(Get-ChildItem -LiteralPath $Script:SpillPath -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object { '{0}|{1}|{2}' -f $_.FullName, $_.Length, $_.LastWriteTimeUtc.Ticks } | Sort-Object) -join "`n") } else { 'ABSENT' } }
+	$Script:SpillBefore = & $Script:GetSpillList
+	$Script:GetAuditEventCount = { try { @(Get-WinEvent -FilterHashtable @{ LogName = 'Application'; ProviderName = 'ConfigureDefender' } -ErrorAction Stop).Count } catch { 0 } }
+	$Script:AuditEventsBefore = & $Script:GetAuditEventCount
+
+	# No test may reach the real Application event log (the audit source is registered on first write). Tests of the audit
+	# calls themselves re-mock this inside their own Describe and assert on it.
+	Mock -ModuleName ConfigureDefender Write-CDAuditEvent {}
+
 	# Shared mock MpPreference used across multiple test blocks
 	$Script:MpPref = [PSCustomObject]@{
 		AttackSurfaceReductionRules_Ids               = @('be9ba2d9-53ea-4cdc-84e5-9b1eeee46550')
@@ -50,8 +61,15 @@ Describe 'Module Import' {
 		Get-Module -Name ConfigureDefender | Should -Not -BeNullOrEmpty
 	}
 
-	It 'Should be version 0.5' {
-		(Get-Module -Name ConfigureDefender).Version.ToString() | Should -Be '0.5'
+	It 'Should be version 0.6' {
+		(Get-Module -Name ConfigureDefender).Version.ToString() | Should -Be '0.6'
+	}
+
+	It 'requires NamedPipe 0.18 exactly' {
+		$Req = @((Import-PowerShellDataFile (Join-Path $Script:ModulePath 'ConfigureDefender.psd1')).RequiredModules)
+		$Req.Count | Should -Be 1
+		$Req[0].ModuleName | Should -BeExactly 'NamedPipe'
+		$Req[0].RequiredVersion | Should -BeExactly '0.18'
 	}
 
 	It 'Should have the correct GUID' {
@@ -378,8 +396,8 @@ Describe 'Get-CDAllowedApplication' {
 	BeforeAll {
 		Mock -ModuleName ConfigureDefender Get-MpPreference { return $Script:MpPref }
 		# notepad.exe exists; missing.exe does not
-		Mock -ModuleName ConfigureDefender Test-Path { $true } -ParameterFilter { $LiteralPath -eq 'C:\Windows\notepad.exe' }
-		Mock -ModuleName ConfigureDefender Test-Path { $false } -ParameterFilter { $LiteralPath -ne 'C:\Windows\notepad.exe' }
+		$Script:RealExe = Join-Path $TestDrive 'realapp.exe'
+		Set-Content -LiteralPath $Script:RealExe -Value 'x'
 	}
 
 	It 'Should return all allowed apps with no filter' {
@@ -558,14 +576,14 @@ Describe 'Set-CDAllowedApplication' {
 				ControlledFolderAccessAllowedApplications = @('C:\Windows\notepad.exe', 'C:\fake\gone.exe')
 			}
 		}
-		Mock -ModuleName ConfigureDefender Test-Path { $true } -ParameterFilter { $LiteralPath -eq 'C:\Windows\notepad.exe' }
-		Mock -ModuleName ConfigureDefender Test-Path { $false } -ParameterFilter { $LiteralPath -ne 'C:\Windows\notepad.exe' }
+		$Script:RealExe = Join-Path $TestDrive 'realapp.exe'
+		Set-Content -LiteralPath $Script:RealExe -Value 'x'
 	}
 
 	It 'Add should call Add-MpPreference with the path' {
-		Set-CDAllowedApplication -Path 'C:\MyApp\app.exe'
+		Set-CDAllowedApplication -Path $Script:RealExe
 		Should -Invoke Add-MpPreference -ModuleName ConfigureDefender -Times 1 -ParameterFilter {
-			$ControlledFolderAccessAllowedApplications -eq 'C:\MyApp\app.exe'
+			$ControlledFolderAccessAllowedApplications -eq $Script:RealExe
 		}
 	}
 
@@ -1134,8 +1152,14 @@ Describe 'Set-CDExclusionPath validates on Add only and allows UNC paths' {
 		Should -Invoke -ModuleName ConfigureDefender Add-MpPreference -Times 0 -Exactly
 	}
 
-	It 'rejects a path over 260 characters on Add' {
-		{ Set-CDExclusionPath -Path ('C:\' + ('a' * 300)) -Add } | Should -Throw -ExpectedMessage '*260*'
+	It 'adds a path longer than 260 characters (a long entry already in the list can be added again)' {
+		Set-CDExclusionPath -Path ('C:\' + ('a' * 300)) -Add
+		Should -Invoke -ModuleName ConfigureDefender Add-MpPreference -Times 1 -Exactly
+	}
+
+	It 'rejects a path over the 32767-character extended-path maximum on Add' {
+		{ Set-CDExclusionPath -Path ('C:\' + ('a' * 33000)) -Add } | Should -Throw -ExpectedMessage '*32767*'
+		Should -Invoke -ModuleName ConfigureDefender Add-MpPreference -Times 0 -Exactly
 	}
 
 	It 'removes a UNC entry' {
@@ -1732,7 +1756,7 @@ Describe 'InitialiseModule.psm1 reports the real failure' {
 	}
 
 	It 'a module with a broken function file fails to import and the report names that file and statement, not an unrelated earlier error' {
-		$Dest = Join-Path $TestDrive 'ConfigureDefender\0.5'
+		$Dest = Join-Path $TestDrive 'ConfigureDefender\0.6'
 		New-Item -ItemType Directory -Path $Dest -Force | Out-Null
 		Copy-Item (Join-Path $Script:ModulePath '*') $Dest -Recurse -Exclude 'Tests'
 		Add-Content -LiteralPath (Join-Path $Dest 'FunctionsWindows\Get-CDNetworkProtection.ps1') -Value "`r`nFunction Broken-Thing { if ( }"
@@ -2049,10 +2073,483 @@ Describe 'Busy cursor helpers' {
 }
 
 # ============================================================
+Describe '0.6: Test-CDEntryMissing only judges a path on a ready fixed drive' {
+	BeforeAll {
+		$Script:Mod = Get-Module ConfigureDefender
+		$Used = @([System.IO.DriveInfo]::GetDrives() | ForEach-Object { $_.Name.Substring(0, 1).ToUpper() })
+		$Script:FreeLetter = ('ZYXWVUTSRQPONMLKJIHGFED'.ToCharArray() | Where-Object { "$_" -notin $Used } | Select-Object -First 1)
+	}
+
+	It 'a file on a drive that is not present is NOT missing (a detached USB drive or VHD, or a mapped drive the elevated side cannot see)' {
+		$Script:FreeLetter | Should -Not -BeNullOrEmpty
+		& $Script:Mod { param($p) Test-CDEntryMissing $p } ("{0}:\Tools\app.exe" -f $Script:FreeLetter) | Should -BeFalse
+	}
+
+	It 'a UNC path is NOT missing' {
+		& $Script:Mod { param($p) Test-CDEntryMissing $p } '\\no-such-server-xyz\share\app.exe' | Should -BeFalse
+	}
+
+	It 'a path with no drive letter is NOT missing' {
+		& $Script:Mod { param($p) Test-CDEntryMissing $p } 'app.exe' | Should -BeFalse
+		& $Script:Mod { param($p) Test-CDEntryMissing $p } '\Windows\no-such-file.exe' | Should -BeFalse
+	}
+
+	It 'a file that is gone from the system drive is still missing' {
+		& $Script:Mod { param($p) Test-CDEntryMissing $p } (Join-Path ($env:SystemDrive + '\') 'cd-no-such-folder-xyz\app.exe') | Should -BeTrue
+	}
+}
+
+# ============================================================
+Describe '0.6: -RemoveMissing keeps entries it cannot judge' {
+	BeforeAll {
+		$Used = @([System.IO.DriveInfo]::GetDrives() | ForEach-Object { $_.Name.Substring(0, 1).ToUpper() })
+		$Letter = ('ZYXWVUTSRQPONMLKJIHGFED'.ToCharArray() | Where-Object { "$_" -notin $Used } | Select-Object -First 1)
+		$Script:Present = Join-Path $TestDrive 'present.exe'
+		Set-Content -LiteralPath $Script:Present -Value 'x'
+		$Script:Gone    = Join-Path $TestDrive 'gone.exe'
+		$Script:OnAbsentDrive = "{0}:\Apps\tool.exe" -f $Letter
+		$Script:OnShare = '\\no-such-server-xyz\share\tool.exe'
+		$Script:List = @($Script:Present, $Script:Gone, $Script:OnAbsentDrive, $Script:OnShare)
+	}
+	BeforeEach {
+		Mock -ModuleName ConfigureDefender Get-MpPreference { [PSCustomObject]@{ ControlledFolderAccessAllowedApplications = $Script:List } }
+		Mock -ModuleName ConfigureDefender Remove-MpPreference {}
+		Mock -ModuleName ConfigureDefender Write-MyCatchAudit {}
+		Mock -ModuleName ConfigureDefender Write-CDAuditEvent {}
+	}
+
+	It 'removes only the entry that is gone from a ready fixed drive' {
+		Set-CDAllowedApplication -RemoveMissing
+		Should -Invoke -ModuleName ConfigureDefender Remove-MpPreference -Times 1 -Exactly
+		Should -Invoke -ModuleName ConfigureDefender Remove-MpPreference -Times 1 -Exactly -ParameterFilter { $ControlledFolderAccessAllowedApplications -eq $Script:Gone }
+	}
+
+	It '-CheckMissing lists only that entry too' {
+		$Missing = @(Get-CDAllowedApplication -CheckMissing)
+		$Missing.Count | Should -Be 1
+		$Missing[0] | Should -BeExactly $Script:Gone
+	}
+
+	It 'records each removal in the event log' {
+		Set-CDAllowedApplication -RemoveMissing
+		Should -Invoke -ModuleName ConfigureDefender Write-CDAuditEvent -Times 1 -Exactly -ParameterFilter { $EventId -eq 4005 -and $Message -like '*removed (missing)*gone.exe*' }
+	}
+}
+
+# ============================================================
+Describe '0.6: Rm Missing lists the entries and asks before removing anything' {
+	BeforeAll {
+		$Script:CfaText = Get-Content -LiteralPath (Join-Path $Script:ModulePath 'Scripts\GUI-Tab-CFA.ps1') -Raw
+		$Start = $Script:CfaText.IndexOf('$TsBtnAppsRemoveMissing.Add_Click')
+		$Script:Handler = if ($Start -ge 0) { $Script:CfaText.Substring($Start) } else { '' }
+		$HelperAst = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $Script:ModulePath 'Scripts\GUI-Helpers.ps1'), [ref]$null, [ref]$null)
+		$Def = $HelperAst.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Get-CDRemoveMissingPrompt' }, $true)
+		if ($Def) { . ([scriptblock]::Create($Def.Extent.Text)) }
+	}
+
+	It 'the handler no longer asks the elevated server to decide (-RemoveMissing is not sent)' {
+		$Script:Handler | Should -Not -BeNullOrEmpty
+		$Script:Handler | Should -Not -Match 'Set-CDAllowedApplication -RemoveMissing'
+	}
+
+	It 'the handler shows a Yes / No box, default No, BEFORE it sends any removal' {
+		$Box  = $Script:Handler.IndexOf('MessageBox]::Show')
+		$Send = $Script:Handler.IndexOf('Send-Request')
+		$Box  | Should -BeGreaterThan -1
+		$Send | Should -BeGreaterThan $Box
+		$Script:Handler | Should -Match "'YesNo'"
+		$Script:Handler | Should -Match "'Button2'"
+	}
+
+	It 'the handler removes the confirmed entries one by one with the quoting helper' {
+		$Script:Handler | Should -Match "Set-CDAllowedApplication -Path '\`$Escaped' -Remove"
+		$Script:Handler | Should -Match 'ConvertTo-CDEscapedArg'
+	}
+
+	It 'the prompt lists every entry up to the cap, then says how many more' {
+		$Few = Get-CDRemoveMissingPrompt -Entries @('C:\a\one.exe', 'C:\a\two.exe')
+		$Few | Should -Match 'one\.exe'
+		$Few | Should -Match 'two\.exe'
+		$Few | Should -Match 'not touched'
+		$Many = Get-CDRemoveMissingPrompt -Entries @(1..30 | ForEach-Object { "C:\apps\app$_.exe" })
+		$Many | Should -Match 'app25\.exe'
+		$Many | Should -Not -Match 'app26\.exe'
+		$Many | Should -Match '5 more'
+	}
+}
+
+# ============================================================
+Describe '0.6: every change to Defender is recorded in the Application event log' {
+	BeforeAll {
+		$Script:AuditExe = Join-Path $TestDrive 'auditapp.exe'
+		Set-Content -LiteralPath $Script:AuditExe -Value 'x'
+	}
+	BeforeEach {
+		Mock -ModuleName ConfigureDefender Write-CDAuditEvent {}
+		Mock -ModuleName ConfigureDefender Write-MyCatchAudit {}
+		Mock -ModuleName ConfigureDefender Add-MpPreference {}
+		Mock -ModuleName ConfigureDefender Remove-MpPreference {}
+		Mock -ModuleName ConfigureDefender Set-MpPreference {}
+		Mock -ModuleName ConfigureDefender Get-MpPreference { [PSCustomObject]@{ AttackSurfaceReductionRules_Ids = @('be9ba2d9-53ea-4cdc-84e5-9b1eeee46550'); ControlledFolderAccessAllowedApplications = @() } }
+	}
+
+	It 'writes event <Id> for <Name>' -ForEach @(
+		@{ Name = 'Set-CDExclusionPath add';       Block = { Set-CDExclusionPath -Path 'C:\Data\x' -Add };                  Id = 4002; Match = 'path exclusion added: C:\\Data\\x' }
+		@{ Name = 'Set-CDExclusionPath remove';    Block = { Set-CDExclusionPath -Path 'C:\Data\x' -Remove };               Id = 4002; Match = 'path exclusion removed: C:\\Data\\x' }
+		@{ Name = 'Set-CDExclusionProcess add';    Block = { Set-CDExclusionProcess -Process 'tool.exe' -Add };             Id = 4002; Match = 'process exclusion added: tool\.exe' }
+		@{ Name = 'Set-CDExclusionExtension remove'; Block = { Set-CDExclusionExtension -Extension 'tmp' -Remove };         Id = 4002; Match = 'extension exclusion removed: tmp' }
+		@{ Name = 'Set-CDExclusionIpAddress add';  Block = { Set-CDExclusionIpAddress -IpAddress '10.0.0.5' -Add };         Id = 4002; Match = 'IP-address exclusion added: 10\.0\.0\.5' }
+		@{ Name = 'Set-CDASRExclusion add';        Block = { Set-CDASRExclusion -Path 'C:\MyApp\' -Add };                   Id = 4002; Match = 'ASR-only exclusion added: C:\\MyApp\\' }
+		@{ Name = 'Set-CDASRRule change';          Block = { Set-CDASRRule -GUID 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550' -Action Disabled }; Id = 4003; Match = 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550 set to Disabled' }
+		@{ Name = 'Set-CDASRRule remove';          Block = { Set-CDASRRule -RemoveGUID 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550' }; Id = 4003; Match = 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550 removed' }
+		@{ Name = 'Set-CDASRRule AddAll';          Block = { Set-CDASRRule -AddAll -Action Audit };                         Id = 4003; Match = 'all 17 known rules set to Audit' }
+		@{ Name = 'Set-CDASRRule RemoveAll';       Block = { Set-CDASRRule -RemoveAll };                                    Id = 4003; Match = 'all configured rules removed \(1\)' }
+		@{ Name = 'Set-CDControlledFolderAccess';  Block = { Set-CDControlledFolderAccess -Disable };                       Id = 4004; Match = 'Controlled Folder Access set to Disable' }
+		@{ Name = 'Set-CDNetworkProtection';       Block = { Set-CDNetworkProtection -Audit };                              Id = 4007; Match = 'Network Protection set to Audit' }
+		@{ Name = 'Set-CDControlledFolder remove'; Block = { Set-CDControlledFolder -Folder 'C:\MyData' -Remove };          Id = 4006; Match = 'protected folder removed: C:\\MyData' }
+		@{ Name = 'Set-CDAllowedApplication add';  Block = { Set-CDAllowedApplication -Path $Script:AuditExe -Add };       Id = 4005; Match = 'allowed application added: .*auditapp\.exe' }
+		@{ Name = 'Set-CDAllowedApplication remove'; Block = { Set-CDAllowedApplication -Path 'C:\MyApp\app.exe' -Remove }; Id = 4005; Match = 'allowed application removed: C:\\MyApp\\app\.exe' }
+		@{ Name = 'Set-CDThreatAction';            Block = { Set-CDThreatAction -Level Low -Action Allow };                 Id = 4008; Match = 'Low-severity threat default action set to Allow' }
+	) {
+		$Script:ExpId = $Id; $Script:ExpMatch = $Match
+		& $Block
+		Should -Invoke -ModuleName ConfigureDefender Write-CDAuditEvent -Times 1 -Exactly -ParameterFilter { $EventId -eq $Script:ExpId -and $Message -match $Script:ExpMatch }
+	}
+
+	It 'writes no event when the change itself fails (<Name>)' -ForEach @(
+		@{ Name = 'path exclusion';  Block = { Set-CDExclusionPath -Path 'C:\Data\x' -Add } }
+		@{ Name = 'ASR rule';        Block = { Set-CDASRRule -GUID 'be9ba2d9-53ea-4cdc-84e5-9b1eeee46550' -Action Blocked } }
+		@{ Name = 'allowed app';     Block = { Set-CDAllowedApplication -Path $Script:AuditExe -Add } }
+		@{ Name = 'protected folder'; Block = { Set-CDControlledFolder -Folder 'C:\MyData' -Add } }
+	) {
+		Mock -ModuleName ConfigureDefender Add-MpPreference { throw 'Defender refused' }
+		{ & $Block } | Should -Throw
+		Should -Invoke -ModuleName ConfigureDefender Write-CDAuditEvent -Times 0 -Exactly
+	}
+
+	It 'writes no event when Set-MpPreference fails (Controlled Folder Access, Network Protection, threat action)' {
+		Mock -ModuleName ConfigureDefender Set-MpPreference { throw 'Defender refused' }
+		{ Set-CDControlledFolderAccess -Disable } | Should -Throw
+		{ Set-CDNetworkProtection -Disable } | Should -Throw
+		{ Set-CDThreatAction -Level Low -Action Allow } | Should -Throw
+		Should -Invoke -ModuleName ConfigureDefender Write-CDAuditEvent -Times 0 -Exactly
+	}
+}
+
+# ============================================================
+Describe '0.6: Set-CDSetting accepts only the settings the GUI offers and never assumes a comparison matched' {
+	BeforeEach {
+		Mock -ModuleName ConfigureDefender Write-CDAuditEvent {}
+		Mock -ModuleName ConfigureDefender Write-MyCatchAudit {}
+		Mock -ModuleName ConfigureDefender Set-MpPreference {}
+	}
+
+	It 'the ValidateSet is exactly the list of names Get-CDSetting returns' {
+		Mock -ModuleName ConfigureDefender Get-MpPreference { [PSCustomObject]@{ Anything = 1 } }
+		$Vs = @((Get-Command Set-CDSetting).Parameters['Name'].Attributes | Where-Object { $_ -is [System.Management.Automation.ValidateSetAttribute] })
+		$Vs.Count | Should -Be 1
+		$Offered = @(Get-CDSetting | ForEach-Object { $_.Name } | Sort-Object)
+		Compare-Object -ReferenceObject $Offered -DifferenceObject @($Vs[0].ValidValues | Sort-Object) | Should -BeNullOrEmpty
+	}
+
+	It 'rejects a preference the GUI does not offer, before anything reaches Defender' {
+		{ Set-CDSetting -Name 'DisableIntrusionPreventionSystem' -Value $true } | Should -Throw
+		{ Set-CDSetting -Name 'ExclusionPath' -Value 'C:\' } | Should -Throw
+		Should -Invoke -ModuleName ConfigureDefender Set-MpPreference -Times 0 -Exactly
+	}
+
+	It 'reports a read-back value that cannot be compared as unconfirmed (it used to be assumed to match)' {
+		Mock -ModuleName ConfigureDefender Get-MpPreference { [PSCustomObject]@{ PUAProtection = 'not-a-number' } }
+		{ Set-CDSetting -Name 'PUAProtection' -Value 2 } | Should -Throw -ExpectedMessage '*could not be confirmed*'
+		Should -Invoke -ModuleName ConfigureDefender Write-CDAuditEvent -Times 0 -Exactly
+	}
+}
+
+# ============================================================
+Describe '0.6: broad exclusion paths' {
+	BeforeAll {
+		$Script:Mod = Get-Module ConfigureDefender
+		$HelperAst = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $Script:ModulePath 'Scripts\GUI-Helpers.ps1'), [ref]$null, [ref]$null)
+		$Script:HelperAst = $HelperAst
+	}
+	BeforeEach {
+		Mock -ModuleName ConfigureDefender Write-CDAuditEvent {}
+		Mock -ModuleName ConfigureDefender Write-MyCatchAudit {}
+		Mock -ModuleName ConfigureDefender Add-MpPreference {}
+	}
+
+	It 'calls a drive root, a bare wildcard and the core system folders broad' {
+		$Broad = @('C:\', 'C:', 'c:\*', 'D:\**', '*', '*.*', '%SystemRoot%', '%SystemRoot%\*', '%SystemRoot%\System32', '%ProgramFiles%\', '%ProgramFiles(x86)%\*', '%ProgramData%', ($env:SystemDrive + '\Users'), '%USERPROFILE%\*', $env:SystemRoot)
+		$Wrong = @($Broad | Where-Object { -not (& $Script:Mod { param($p) Test-CDBroadExclusionPath $p } $_) })
+		($Wrong -join ' | ') | Should -BeExactly ''
+	}
+
+	It 'does not call a folder below those, a share path or an ordinary pattern broad' {
+		$Narrow = @('C:\Data\*', 'C:\Temp\file?.tmp', '%SystemRoot%\Temp', ($env:USERPROFILE + '\Downloads'), '\\server\share\tools\*', 'C:\Program Files\MyApp', '', $null)
+		$Wrong = @($Narrow | Where-Object { & $Script:Mod { param($p) Test-CDBroadExclusionPath $p } $_ })
+		($Wrong -join ' | ') | Should -BeExactly ''
+	}
+
+	It 'Set-CDExclusionPath still adds a broad path, warns, and the event says BROAD' {
+		Set-CDExclusionPath -Path 'C:\' -Add -WarningVariable Warn -WarningAction SilentlyContinue
+		Should -Invoke -ModuleName ConfigureDefender Add-MpPreference -Times 1 -Exactly
+		@($Warn).Count | Should -BeGreaterThan 0
+		Should -Invoke -ModuleName ConfigureDefender Write-CDAuditEvent -Times 1 -Exactly -ParameterFilter { $EventId -eq 4002 -and $Message -like '*BROAD*' }
+	}
+
+	It 'Set-CDExclusionPath does not warn or flag an ordinary path' {
+		Set-CDExclusionPath -Path 'C:\Data\tools\*' -Add -WarningVariable Warn -WarningAction SilentlyContinue
+		@($Warn).Count | Should -Be 0
+		Should -Invoke -ModuleName ConfigureDefender Write-CDAuditEvent -Times 0 -Exactly -ParameterFilter { $Message -like '*BROAD*' }
+	}
+
+	It 'Set-CDASRExclusion flags a broad path the same way' {
+		Set-CDASRExclusion -Path 'D:\' -Add -WarningAction SilentlyContinue
+		Should -Invoke -ModuleName ConfigureDefender Write-CDAuditEvent -Times 1 -Exactly -ParameterFilter { $EventId -eq 4002 -and $Message -like '*BROAD*' }
+	}
+
+	It 'the GUI forwarder reaches the module' {
+		$Def = $Script:HelperAst.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Test-CDBroadExclusionPath' }, $true)
+		$Def | Should -Not -BeNullOrEmpty
+		. ([scriptblock]::Create($Def.Extent.Text))
+		Test-CDBroadExclusionPath 'C:\' | Should -BeTrue
+		Test-CDBroadExclusionPath 'C:\Data\x' | Should -BeFalse
+	}
+
+	It 'the Exclusions tab asks Yes / No (default No) before a broad path is sent' {
+		$Def = $Script:HelperAst.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Confirm-ExclValue' }, $true)
+		$Def.Extent.Text | Should -Match 'Test-CDBroadExclusionPath'
+		$Def.Extent.Text | Should -Match "'YesNo'"
+		$Def.Extent.Text | Should -Match "'Button2'"
+	}
+
+	It 'the GUI no longer caps a typed path at 260 characters' {
+		(Get-Content -LiteralPath (Join-Path $Script:ModulePath 'Scripts\GUI-Helpers.ps1') -Raw) | Should -Not -Match 'Length -gt 260'
+	}
+}
+
+# ============================================================
+Describe '0.6: Set-CDCIVerbose registers its watchdog before it switches the channel on' {
+	BeforeEach {
+		$Script:Seq = [System.Collections.Generic.List[string]]::new()
+		$Script:Act = $null
+		Mock -ModuleName ConfigureDefender Write-MyCatchAudit {}
+		Mock -ModuleName ConfigureDefender Write-CDAuditEvent {}
+		Mock -ModuleName ConfigureDefender Unregister-ScheduledTask { $Script:Seq.Add('unregister') }
+		# the real New-ScheduledTask* run (they only build objects); the Register mock keeps what the watchdog would execute
+		Mock -ModuleName ConfigureDefender Register-ScheduledTask { $Script:Seq.Add('register'); $Script:Act = @{ Execute = $Action.Execute; Argument = $Action.Arguments }; [PSCustomObject]@{} }
+		# SaveChanges records the moment the channel is saved as ENABLED
+		Mock -ModuleName ConfigureDefender Get-WinEvent {
+			$o = [PSCustomObject]@{ IsEnabled = $false; MaximumSizeInBytes = 1052672; LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Retain }
+			$o | Add-Member -MemberType ScriptMethod -Name SaveChanges -Value { if ($this.IsEnabled) { $Script:Seq.Add('enable') } }
+			$o
+		}
+	}
+
+	It 'registers the watchdog first, then enables the channel' {
+		$null = Set-CDCIVerbose -WatchdogMinutes 5
+		$Script:Seq | Should -Contain 'register'
+		$Script:Seq | Should -Contain 'enable'
+		$Script:Seq.IndexOf('register') | Should -BeLessThan $Script:Seq.IndexOf('enable')
+	}
+
+	It 'when the watchdog cannot be registered it throws and the channel is never enabled' {
+		Mock -ModuleName ConfigureDefender Register-ScheduledTask { throw 'Access is denied.' }
+		{ Set-CDCIVerbose -WatchdogMinutes 5 } | Should -Throw
+		$Script:Seq | Should -Not -Contain 'enable'
+	}
+
+	It 'when the channel cannot be enabled the watchdog is removed again' {
+		Mock -ModuleName ConfigureDefender Get-WinEvent {
+			$o = [PSCustomObject]@{ IsEnabled = $false; MaximumSizeInBytes = 1052672; LogMode = [System.Diagnostics.Eventing.Reader.EventLogMode]::Retain }
+			$o | Add-Member -MemberType ScriptMethod -Name SaveChanges -Value { if ($this.IsEnabled) { throw 'The channel refused.' } }
+			$o
+		}
+		{ Set-CDCIVerbose -WatchdogMinutes 5 } | Should -Throw
+		$Script:Seq | Should -Contain 'register'
+		$Script:Seq[$Script:Seq.Count - 1] | Should -BeExactly 'unregister'
+	}
+
+	It 'names powershell.exe, wevtutil.exe and schtasks.exe by their full System32 path' {
+		$null = Set-CDCIVerbose -WatchdogMinutes 5
+		$Sys32 = Join-Path -Path $env:SystemRoot -ChildPath 'System32'
+		$Script:Act.Execute | Should -BeExactly "$Sys32\WindowsPowerShell\v1.0\powershell.exe"
+		$Script:Act.Argument | Should -BeLike "*$Sys32\wevtutil.exe*"
+		$Script:Act.Argument | Should -BeLike "*$Sys32\schtasks.exe*"
+		$Script:Act.Argument | Should -Not -Match "(^|[\s;&'])wevtutil(\.exe)? "
+	}
+
+	It 'records the switch-on in the event log' {
+		$null = Set-CDCIVerbose -WatchdogMinutes 5
+		Should -Invoke -ModuleName ConfigureDefender Write-CDAuditEvent -Times 1 -Exactly -ParameterFilter { $EventId -eq 4009 -and $Message -like '*enabled*' }
+	}
+}
+
+# ============================================================
+Describe '0.6: loader, integration script' {
+	It 'importing the module does not clear the caller''s $Error' {
+		$Psd1 = Join-Path $Script:ModulePath 'ConfigureDefender.psd1'
+		$Exe  = (Get-Process -Id $PID).Path
+		$Cmd  = "`$null = Get-Item 'C:\this\path\does\not\exist' -ErrorAction SilentlyContinue; `$before = `$Error.Count; Import-Module '$Psd1' -Force -ErrorAction Stop; 'RESULT ' + (`$before -ge 1 -and `$Error.Count -ge `$before)"
+		$Out  = (& $Exe -NoProfile -Command $Cmd 2>&1 | Out-String)
+		$Out | Should -Match 'RESULT True'
+	}
+
+	It 'InitialiseModule.psm1 has no $Global:Error.clear() call' {
+		(Get-Content -LiteralPath (Join-Path $Script:ModulePath 'InitialiseModule.psm1') -Raw) | Should -Not -Match '(?i)Error\.clear\('
+	}
+
+	It 'the integration script says it is a standalone script, not a Pester file with It blocks' {
+		$Text = Get-Content -LiteralPath (Join-Path $Script:ModulePath 'Tests\ConfigureDefender.IntegrationTests.ps1') -Raw
+		$Text | Should -Match 'standalone script, not a Pester file'
+		$Text | Should -Not -Match '(?m)^\s*It\s+'
+	}
+}
+
+# ============================================================
+Describe '0.6: an allowed application must be one existing executable file (Add is validated, Remove never is)' {
+	BeforeAll {
+		$Script:Good   = Join-Path $TestDrive 'good.exe'
+		$Script:Doc    = Join-Path $TestDrive 'notes.txt'
+		$Script:Dir    = Join-Path $TestDrive 'AFolder'
+		Set-Content -LiteralPath $Script:Good -Value 'x'
+		Set-Content -LiteralPath $Script:Doc -Value 'x'
+		$null = New-Item -ItemType Directory -Path $Script:Dir
+		$Script:Absent = Join-Path ($env:SystemDrive + '\') 'cd-no-such-folder-xyz\app.exe'
+		$Used = @([System.IO.DriveInfo]::GetDrives() | ForEach-Object { $_.Name.Substring(0, 1).ToUpper() })
+		$Letter = ('ZYXWVUTSRQPONMLKJIHGFED'.ToCharArray() | Where-Object { "$_" -notin $Used } | Select-Object -First 1)
+		$Script:OnAbsentDrive = "{0}:\Apps\tool.exe" -f $Letter
+		$Script:OnShare = '\\no-such-server-xyz\share\tool.exe'
+	}
+	BeforeEach {
+		Mock -ModuleName ConfigureDefender Add-MpPreference {}
+		Mock -ModuleName ConfigureDefender Remove-MpPreference {}
+		Mock -ModuleName ConfigureDefender Set-MpPreference {}
+		Mock -ModuleName ConfigureDefender Get-MpPreference { [PSCustomObject]@{ ControlledFolderAccessAllowedApplications = @() } }
+		Mock -ModuleName ConfigureDefender Write-MyCatchAudit {}
+		Mock -ModuleName ConfigureDefender Write-CDAuditEvent {}
+	}
+
+	It 'accepts an existing .exe' {
+		Set-CDAllowedApplication -Path $Script:Good -Add
+		Should -Invoke -ModuleName ConfigureDefender Add-MpPreference -Times 1 -Exactly -ParameterFilter { $ControlledFolderAccessAllowedApplications -eq $Script:Good }
+		Should -Invoke -ModuleName ConfigureDefender Write-CDAuditEvent -Times 1 -Exactly -ParameterFilter { $EventId -eq 4005 -and $Message -like '*added*good.exe*' }
+	}
+
+	It 'refuses <Name> with a clear error and never calls Defender, even with -Force' -ForEach @(
+		@{ Name = 'a drive root (c:\)';          Get = { 'c:\' } }
+		@{ Name = 'a bare drive (C:)';           Get = { 'C:' } }
+		@{ Name = 'a drive root wildcard';       Get = { 'C:\*' } }
+		@{ Name = 'a folder (the Windows folder)'; Get = { $env:SystemRoot } }
+		@{ Name = 'a folder with a trailing separator'; Get = { $env:SystemRoot + '\' } }
+		@{ Name = 'a folder under the test drive'; Get = { $Script:Dir } }
+		@{ Name = 'a local file that does not exist'; Get = { $Script:Absent } }
+		@{ Name = 'a wildcard path';             Get = { Join-Path $env:SystemRoot '*.exe' } }
+		@{ Name = 'a ? wildcard';                Get = { Join-Path $env:SystemRoot 'notepad?.exe' } }
+		@{ Name = 'a blank value';               Get = { '   ' } }
+		@{ Name = 'a control character';         Get = { "C:\Apps\a`tb.exe" } }
+		@{ Name = 'a forbidden character';       Get = { 'C:\Apps\a|b.exe' } }
+		@{ Name = 'a relative name';             Get = { 'notepad.exe' } }
+		@{ Name = 'a bare network share';        Get = { '\\no-such-server-xyz\share' } }
+	) {
+		$Value = & $Get
+		{ Set-CDAllowedApplication -Path $Value -Add } | Should -Throw -ExpectedMessage 'Not added:*'
+		{ Set-CDAllowedApplication -Path $Value -Add -Force } | Should -Throw -ExpectedMessage 'Not added:*'
+		Should -Invoke -ModuleName ConfigureDefender Add-MpPreference -Times 0 -Exactly
+		Should -Invoke -ModuleName ConfigureDefender Write-CDAuditEvent -Times 0 -Exactly
+	}
+
+	It 'a refusal is not logged as a fault in the catch audit' {
+		{ Set-CDAllowedApplication -Path 'c:\' -Add } | Should -Throw
+		Should -Invoke -ModuleName ConfigureDefender Write-MyCatchAudit -Times 0 -Exactly
+	}
+
+	It 'an existing file that is not an executable type needs -Force' {
+		{ Set-CDAllowedApplication -Path $Script:Doc -Add } | Should -Throw -ExpectedMessage '*Use -Force*'
+		Should -Invoke -ModuleName ConfigureDefender Add-MpPreference -Times 0 -Exactly
+		Set-CDAllowedApplication -Path $Script:Doc -Add -Force
+		Should -Invoke -ModuleName ConfigureDefender Add-MpPreference -Times 1 -Exactly -ParameterFilter { $ControlledFolderAccessAllowedApplications -eq $Script:Doc }
+	}
+
+	It 'a network path needs -Force (the elevated session cannot see the user''s shares)' {
+		{ Set-CDAllowedApplication -Path $Script:OnShare -Add } | Should -Throw -ExpectedMessage '*Use -Force*'
+		Should -Invoke -ModuleName ConfigureDefender Add-MpPreference -Times 0 -Exactly
+		Set-CDAllowedApplication -Path $Script:OnShare -Add -Force
+		Should -Invoke -ModuleName ConfigureDefender Add-MpPreference -Times 1 -Exactly -ParameterFilter { $ControlledFolderAccessAllowedApplications -eq $Script:OnShare }
+	}
+
+	It 'a file on a drive that is not present needs -Force (detached USB / VHD, unseen mapped drive)' {
+		{ Set-CDAllowedApplication -Path $Script:OnAbsentDrive -Add } | Should -Throw -ExpectedMessage '*Use -Force*'
+		Set-CDAllowedApplication -Path $Script:OnAbsentDrive -Add -Force
+		Should -Invoke -ModuleName ConfigureDefender Add-MpPreference -Times 1 -Exactly -ParameterFilter { $ControlledFolderAccessAllowedApplications -eq $Script:OnAbsentDrive }
+	}
+
+	It 'an unexpandable environment variable needs -Force' {
+		{ Set-CDAllowedApplication -Path '%CD_NO_SUCH_VARIABLE_XYZ%\app.exe' -Add } | Should -Throw -ExpectedMessage '*Use -Force*'
+	}
+
+	It 'Remove is permissive: <Name> can always be removed' -ForEach @(
+		@{ Name = 'a drive root';        Get = { 'c:\' } }
+		@{ Name = 'a folder';            Get = { $Script:Dir } }
+		@{ Name = 'a wildcard entry';    Get = { 'C:\Windows\*' } }
+		@{ Name = 'a file that is gone'; Get = { $Script:Absent } }
+		@{ Name = 'a network path';      Get = { $Script:OnShare } }
+		@{ Name = 'a non-executable';    Get = { $Script:Doc } }
+		@{ Name = 'a blank entry';       Get = { '   ' } }
+	) {
+		$Value = & $Get
+		{ Set-CDAllowedApplication -Path $Value -Remove } | Should -Not -Throw
+		Should -Invoke -ModuleName ConfigureDefender Remove-MpPreference -Times 1 -Exactly -ParameterFilter { $ControlledFolderAccessAllowedApplications -eq $Value }
+		Should -Invoke -ModuleName ConfigureDefender Write-CDAuditEvent -Times 1 -Exactly -ParameterFilter { $EventId -eq 4005 -and $Message -like '*removed*' }
+	}
+
+	Context 'the GUI checks first, in the GUI session, and asks with No as the default' {
+		BeforeAll {
+			$Script:CfaText = Get-Content -LiteralPath (Join-Path $Script:ModulePath 'Scripts\GUI-Tab-CFA.ps1') -Raw
+			$Script:TevText = Get-Content -LiteralPath (Join-Path $Script:ModulePath 'Scripts\GUI-Tab-ThreatEvents.ps1') -Raw
+			$HelperAst = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $Script:ModulePath 'Scripts\GUI-Helpers.ps1'), [ref]$null, [ref]$null)
+			$Def = $HelperAst.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Confirm-AllowedAppPath' }, $true)
+			$Script:ConfirmText = if ($Def) { $Def.Extent.Text } else { '' }
+		}
+
+		It 'the confirm helper refuses with an OK box and asks Yes / No (default No) for unverifiable and non-executable paths' {
+			$Script:ConfirmText | Should -Not -BeNullOrEmpty
+			$Script:ConfirmText | Should -Match "'YesNo'"
+			$Script:ConfirmText | Should -Match "'Button2'"
+			$Script:ConfirmText | Should -Match "-eq 'Reject'"
+		}
+
+		It 'Add and Edit validate before sending and send -Force only after that check' {
+			$Script:CfaText | Should -Not -Match 'Test-CDExclusionPath \$A\b'
+			([regex]::Matches($Script:CfaText, 'Confirm-AllowedAppPath')).Count | Should -Be 2
+			$Script:CfaText.IndexOf('Confirm-AllowedAppPath $A') | Should -BeLessThan $Script:CfaText.IndexOf("-Path '`$Escaped' -Add -Force")
+			$Script:CfaText.IndexOf('Confirm-AllowedAppPath $NewPath') | Should -BeLessThan $Script:CfaText.IndexOf("-Path '`$EscNew' -Add -Force")
+		}
+
+		It 'the Events tab allowed-app add validates first too' {
+			$Script:TevText.IndexOf('Confirm-AllowedAppPath $ProcName') | Should -BeGreaterThan -1
+			$Script:TevText.IndexOf('Confirm-AllowedAppPath $ProcName') | Should -BeLessThan $Script:TevText.IndexOf("Set-CDAllowedApplication -Path '`$Escaped' -Add -Force")
+		}
+
+		It 'Remove handlers still send plain -Remove with no validation' {
+			$Script:CfaText | Should -Match "Set-CDAllowedApplication -Path '\`$Escaped' -Remove"
+			$Script:CfaText | Should -Not -Match 'Confirm-AllowedAppPath[^\r\n]*-Remove'
+		}
+	}
+}
+# ============================================================
 # Keep this Describe LAST: it proves the run left the machine's real persisted catch-audit log alone.
 Describe 'Suite hygiene' {
 	It 'leaves the persisted catch-audit log (CatchAudit.jsonl) unchanged' {
 		$After = if (Test-Path -LiteralPath $Script:CatchAuditPath) { (Get-FileHash -LiteralPath $Script:CatchAuditPath -Algorithm SHA256).Hash } else { 'ABSENT' }
 		$After | Should -BeExactly $Script:CatchAuditHashBefore
+	}
+
+	It 'leaves the real catch-audit spill folder unchanged' {
+		(& $Script:GetSpillList) | Should -BeExactly $Script:SpillBefore
+	}
+
+	It 'wrote no ConfigureDefender entry to the real Application event log' {
+		(& $Script:GetAuditEventCount) | Should -Be $Script:AuditEventsBefore
 	}
 }

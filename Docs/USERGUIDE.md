@@ -1,4 +1,4 @@
-# ConfigureDefender Module v0.5 - User Guide
+# ConfigureDefender Module v0.6 - User Guide
 
 <!-- CONTRIBUTOR NOTE: Do NOT use em-dashes in this file. Use a regular hyphen (-) only.
      Em-dashes cause PowerShell parser errors in string literals and may be silently
@@ -21,10 +21,11 @@ Write operations that require elevation are routed through a NamedPipe elevated 
 - Inspect Defender event log (ASR and CFA violations)
 - GUI front-end with elevation via NamedPipe (no UAC prompt on each action)
 
-**Dependencies:** NamedPipe module v0.17 (pinned: `RequiredVersion = '0.17'` in the manifest), PowerShell 5.1+, Windows only.
-NamedPipe 0.17 checks every line sent between the GUI and the elevated server (length, an authentication code and a request id), so
-a damaged, forged or replayed message is refused with an error beginning `Pipe frame rejected`. That should never appear in normal
-use; if it does, see the NamedPipe user guide ("What's New in v0.17").
+**Dependencies:** NamedPipe module v0.18 (pinned: `RequiredVersion = '0.18'` in the manifest), PowerShell 5.1+, Windows only.
+NamedPipe 0.17 and later check every line sent between the GUI and the elevated server (length, an authentication code and a request
+id), so a damaged, forged or replayed message is refused with an error beginning `Pipe frame rejected`. That should never appear in
+normal use; if it does, see the NamedPipe user guide. NamedPipe 0.18 also checks that the elevated process serving the pipe is the one
+that was started; if the GUI ever reports that it is refusing to use the pipe, close the GUI and open it again.
 
 ## Architecture
 
@@ -59,7 +60,7 @@ turns Smart App Control allow logging off, finishes first) to shut it down.
 ## Quick Start
 
 ```powershell
-Import-Module ConfigureDefender -RequiredVersion 0.5
+Import-Module ConfigureDefender -RequiredVersion 0.6
 
 # Read ASR rule states (no elevation)
 Get-CDASRRule
@@ -391,9 +392,18 @@ Adds, removes, or cleans up allowed applications for Controlled Folder Access.
 
 ```powershell
 Set-CDAllowedApplication -Path 'C:\MyApp\app.exe'         # Add (default)
+Set-CDAllowedApplication -Path '\\nas\tools\app.exe' -Add -Force   # a path the elevated session cannot verify
 Set-CDAllowedApplication -Path 'C:\MyApp\app.exe' -Remove
 Set-CDAllowedApplication -RemoveMissing                    # Remove all entries whose paths no longer exist
 ```
+
+**Add is validated.** An allowed application must be one existing executable file. Add refuses (with a clear error) an empty value, a wildcard, a control character, a relative path, a drive root or bare share, a folder, and a file that is certainly absent from a fixed local drive. A path the elevated process cannot verify (a network path, a mapped or detached drive, an environment variable that cannot be expanded) and an existing file that is not .exe, .com or .scr are refused unless you pass `-Force`. `-Remove` is never validated, so any stored entry (a stale path, a folder, a drive root) can always be removed. In the GUI, the Add and Edit dialogs and the Events tab check the same rules first and explain a refusal; for the unverifiable and non-executable cases they ask Yes / No with **No** as the default.
+
+An entry counts as missing only when it is a path on a **fixed local drive that is ready** and the file is not there. Entries on mapped
+network drives, UNC shares, removable or detached drives (USB, VHD) and entries with no drive letter are never treated as missing, because
+the elevated process cannot tell "gone" from "not attached right now". The GUI's **Rm Missing** button does not use `-RemoveMissing`: it
+lists the missing entries and removes the ones you confirm (see "Rm Missing" under GUI Integration).
+Each add or removal is recorded in the Application event log (event 4005; see "Application event log entries").
 
 ---
 
@@ -437,7 +447,9 @@ Uses the in-process `EventLogConfiguration` API (not `wevtutil`, which deadlocks
 server). On enable it widens the channel to 128 MB (a Debug channel that stays in Retain mode) and
 registers a self-deleting **SYSTEM watchdog scheduled task** (`ConfigureDefender-SACVerboseWatchdog`) that
 disables the channel again - always at the next reboot, plus after `-WatchdogMinutes` if given - so it is
-never left on even if the GUI is killed. Returns `Channel`, `Enabled`, `MaxSizeMB`, `Watchdog`. The
+never left on even if the GUI is killed. The task is registered **before** the channel is switched on (if it cannot be registered the
+channel stays off, and if the switch-on fails the task is removed again), and it runs `powershell.exe`, `wevtutil.exe` and `schtasks.exe` by
+their full System32 paths. Switching the channel on or off is recorded in the Application event log (event 4009). Returns `Channel`, `Enabled`, `MaxSizeMB`, `Watchdog`. The
 Events tab **Log** toggle calls this; you rarely need it directly.
 
 ---
@@ -501,11 +513,46 @@ The GUI entry point is `Scripts\ConfigureDefenderGUI.ps1`, which dot-sources 5 t
 |-----|-----------------|-------|
 | 1. ASR Rules | Refresh, Select All, Set Action dropdown, Exclusions [+/-] toggle | Toggle reveals ASR Exclusions in a SplitContainer bottom panel |
 | 2. Exclusions | `ASR` `Processes` `Paths` `Extensions` `IPs` category buttons, Refresh, Add, Remove, Filter | Single panel; category buttons switch which ListView is visible |
-| 3. Controlled Folders | Refresh, Add, Remove, Allowed Apps [+/-] toggle | Toggle reveals Allowed Apps in a SplitContainer bottom panel |
+| 3. Controlled Folders | Refresh, Add, Remove, Allowed Apps [+/-] toggle | Toggle reveals Allowed Apps in a SplitContainer bottom panel (Refresh, Add, Remove, **Rm Missing** - lists and asks first, see below) |
 | 4. Settings | Refresh | Double-click to edit Bool/Enum/Int settings |
 | 5. Threat Actions | Refresh | Double-click to edit action per severity |
 | 6. Events | Refresh, Add Exclusion, Details, Filter (type/since/date); **SAC Allows:** Log / Save / Open + Auto-off min; Find | Read-only ASR/CFA/SAC event view. Type filter includes `SAC` (blocks, red) and `SAC-Allow` (allows, green). **Details** (or double-click) opens the SAC details dialog (selectable text, Copy All / Copy SHA256). The **SAC Allows** group captures and analyses allow decisions - see "Smart App Control allow logging" below. **Find** filters the shown rows across all columns |
 | 7. History | Refresh, Filter (status/since/date) | Threat detection history |
+
+### Rm Missing (Controlled Folders tab, Allowed Apps panel)
+
+**Rm Missing** first refreshes the Allowed Apps list, then shows the entries marked Missing (up to 25, then "and N more") in a Yes / No box
+that defaults to **No**. Only if you answer Yes are those entries removed from Defender's allowed list, one request each; the files themselves
+are never touched. "Missing" is judged in the GUI session and only for paths on a fixed local drive that is ready (see
+`Set-CDAllowedApplication`), so entries on network, removable or detached drives are never offered. If nothing is missing the status bar
+says so and no box appears.
+
+### Broad exclusions (Exclusions tab)
+
+Adding or editing an ASR or path exclusion that covers a whole drive or a core folder (a drive root such as `C:\` or `C:\*`, a bare `*`,
+the Windows folder or its System32 folder, Program Files, Program Files (x86), ProgramData, the Users folder, your profile folder) asks
+"Add this broad exclusion anyway?" (default **No**). The same paths added from the command line, or from the Events tab, are accepted
+with a warning and the event log entry is marked `(BROAD path)`.
+
+### Application event log entries
+
+Every successful change the module makes to Defender writes an Information event to the **Application** log, source `ConfigureDefender`
+(the source is registered on first use, which needs the elevated session). The text holds names and paths only, never a secret.
+
+| Event | Meaning |
+|-------|---------|
+| 4001 | A Defender setting was changed (`Set-CDSetting`) |
+| 4002 | An exclusion was added or removed (path, process, extension, IP address or ASR-only path) |
+| 4003 | An ASR rule was changed or removed (one rule, all rules, or all configured rules) |
+| 4004 | Controlled Folder Access mode changed |
+| 4005 | An allowed application was added or removed (each removed "missing" entry is its own event) |
+| 4006 | A Controlled Folder Access protected folder was added or removed |
+| 4007 | Network Protection mode changed |
+| 4008 | A threat default action was changed |
+| 4009 | Smart App Control allow logging was switched on or off |
+
+An event is written only after Defender accepted the change. Read them with
+`Get-WinEvent -FilterHashtable @{ LogName = 'Application'; ProviderName = 'ConfigureDefender' }`.
 
 ### Smart App Control allow logging (Events tab)
 
@@ -592,9 +639,9 @@ Invoke-Pester -Path .\Tests\ConfigureDefender.Tests.ps1 -Output Detailed
 
 Tests do not require elevation and do not modify Defender configuration.
 All Defender cmdlets (`Get-MpPreference`, `Set-MpPreference`, `Add-MpPreference`,
-`Remove-MpPreference`) are mocked. The suite (210 tests at 0.5) runs under Windows PowerShell 5.1 and PowerShell 7 (Pester 5).
-It does not touch the persisted catch-audit log (`CatchAudit.jsonl` under the common application data folder): the last test
-fails if that file's hash changed during the run. Outside the tests, an entry a non-elevated session cannot persist is also saved to a `Spill` folder beside that file and imported by an elevated `Get-MyCatchAuditLog` or a deploy.
+`Remove-MpPreference`) are mocked, as is the event-log writer. The suite (296 tests at 0.6) runs under Windows PowerShell 5.1 and PowerShell 7 (Pester 5).
+It does not touch the persisted catch-audit log (`CatchAudit.jsonl` under the common application data folder), its `Spill` folder or the
+Application event log: the last tests fail if that file's hash, the spill folder's listing or the number of `ConfigureDefender` events changed during the run. Outside the tests, an entry a non-elevated session cannot persist is also saved to a `Spill` folder beside that file and imported by an elevated `Get-MyCatchAuditLog` or a deploy.
 
 An extra runnable check of the Exclusions tab (it drives the real tab script in an invisible form, no Defender access):
 
@@ -602,7 +649,8 @@ An extra runnable check of the Exclusions tab (it drives the real tab script in 
 .\Tests\ConfigureDefender.ExclusionsTabSmokeTest.ps1     # exit code 0 = all checks passed
 ```
 
-`Tests\ConfigureDefender.IntegrationTests.ps1` is different: it changes real Defender settings and needs one UAC prompt.
+`Tests\ConfigureDefender.IntegrationTests.ps1` is different: it is a standalone script (not a Pester file, no `It` blocks, not counted
+above), it changes real Defender settings and needs one UAC prompt.
 Run it only on a machine where that is acceptable.
 
 ## MpPreference Properties Not Implemented
@@ -827,6 +875,11 @@ Set-CDExclusionPath -Path 'C:\MyApp\'          # Add (default)
 Set-CDExclusionPath -Path 'C:\MyApp\' -Remove
 ```
 
+The path is checked when it is added (not when it is removed): no `< > " |` or control characters, at most 32767 characters (the Windows
+extended-path maximum; an entry longer than 260 characters can be added again). UNC paths are allowed. A **broad** path (a drive root, a
+bare `*`, the Windows folder, Program Files and similar - see "Broad exclusions") is still added, with a warning, and the Application
+event log entry (4002) is marked `(BROAD path)`.
+
 ---
 
 ### Set-CDExclusionExtension [admin]
@@ -861,7 +914,10 @@ Set-CDSetting -Name 'CloudBlockLevel'           -Value 2
 Set-CDSetting -Name 'CloudExtendedTimeout'      -Value 10
 ```
 
-Use `Get-CDSetting` to discover valid property names and their types.
+`-Name` accepts only the 24 settings that `Get-CDSetting` returns (the ones the Settings tab shows); any other name is rejected before
+anything is sent to Defender, and tab completion lists the valid names. Use `Get-CDSetting` to see their types. After the change the value
+is read back: if Defender kept the old value (Tamper Protection or a policy), or the value read back cannot be compared with the one
+requested, the call fails instead of reporting success. A successful change writes event 4001 to the Application log.
 
 ---
 
@@ -911,7 +967,7 @@ a dropped session transparently.
 
 ### "Module not found" in elevated server
 Ensure ConfigureDefender is deployed to a path in `$env:PSModulePath` (e.g.
-`C:\Program Files\WindowsPowerShell\Modules\ConfigureDefender\0.5\`).
+`C:\Program Files\WindowsPowerShell\Modules\ConfigureDefender\0.6\`). NamedPipe 0.18 must be installed beside it.
 
 ### Get-CDEvent returns nothing (or the Events tab / SAC filter is empty)
 The event log query defaults to events since the last boot. Use `-Since` with an earlier

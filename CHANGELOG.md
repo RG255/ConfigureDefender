@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6] - 2026-11-11
+
+### Changed
+
+- Now requires NamedPipe 0.18 (was 0.17). The public functions are unchanged; 0.18 adds checks on the pipe between the GUI and the
+  elevated server (see the NamedPipe CHANGELOG). Use NamedPipe 0.18 and ConfigureDefender 0.6 together.
+- **Rm Missing** (Controlled Folders tab, Allowed Apps panel) now refreshes the list, shows the entries it would remove and asks
+  Yes / No (default No) before removing anything. It removes only the confirmed entries, one by one. Before, it removed every
+  entry that the elevated server could not find, with no list and no question.
+- An entry now counts as **missing** only when it is a path on a fixed local drive that is ready and the file is not there. Entries on
+  mapped network drives, UNC shares, removable or detached drives (USB, VHD) and entries with no drive letter are never listed as
+  missing and never removed by `Set-CDAllowedApplication -RemoveMissing`. This also affects the red "Missing" status in the list and
+  `Get-CDAllowedApplication -CheckMissing`.
+- `Set-CDSetting -Name` accepts only the 24 settings the Settings tab offers (the names `Get-CDSetting` returns). Any other name is
+  rejected before anything is sent to Defender. Callers that passed other preference names to `Set-CDSetting` must use
+  `Set-MpPreference` directly.
+- `Set-CDSetting`: if the value read back after a change cannot be compared with the requested value, the call now fails with
+  "could not be confirmed" instead of reporting success.
+- **Allowed applications are validated when added.** An allowed application must be one existing executable file. `Set-CDAllowedApplication -Add` now refuses (terminating error, nothing sent to Defender) an empty value, a wildcard, a control character, a path that is not absolute, a drive root or bare share, a folder, and a file that is certainly absent from a fixed local drive. A path the elevated session cannot check (network path, mapped or detached drive, unexpandable variable) or an existing file that is not .exe, .com or .scr is refused unless the new `-Force` switch is given. `-Remove` is never validated, so a stale, odd or folder entry can always be removed. The Allowed Apps Add and Edit dialogs and the Events tab "Add Allowed Application" check the same rules first in the GUI session (which sees the user's mapped and removable drives), explain a refusal, and ask Yes / No (default No) for the unverifiable and non-executable cases. Before, any text, including a drive root, was accepted. The Add dialog no longer advertises wildcards.
+- A path exclusion of more than 260 characters can now be added (limit 32767, the Windows extended-path maximum).
+  Before, a long entry already in the list could be removed but not added again.
+- `Set-CDCIVerbose` (Smart App Control allow logging) registers its auto-off task **before** it switches the channel on, and removes
+  the task again if the switch-on fails. If the task cannot be registered the channel is not enabled. The task now runs
+  `powershell.exe`, `wevtutil.exe` and `schtasks.exe` by their full System32 paths.
+- The module loader no longer clears the caller's `$Error` list when the module is imported.
+- A variable that cannot be created at import now stops the import with a clear error (naming the module, the variable and the reason) instead of leaving the module half-loaded.
+
+### Added
+
+- **Application event log entries** for every change the module makes to Defender, not only `Set-CDSetting`. Source
+  `ConfigureDefender`, Information level, with the names or paths involved and nothing else: 4002 exclusion added or removed (path,
+  process, extension, IP address, ASR-only), 4003 ASR rule changed or removed, 4004 Controlled Folder Access mode, 4005 allowed
+  application added or removed (each removed "missing" entry is its own event), 4006 protected folder added or removed, 4007 Network
+  Protection mode, 4008 threat default action, 4009 Smart App Control allow logging on or off. 4001 (setting changed) is as before.
+  An event is written only after the change succeeded.
+- **Broad exclusion warning.** An exclusion path that covers a whole drive or a core folder (a drive root, a bare `*`, the Windows
+  folder and its System32 folder, Program Files, Program Files (x86), ProgramData, the Users folder, the current user's profile
+  folder) is still accepted, but the Exclusions tab asks Yes / No (default No) first, `Set-CDExclusionPath` and `Set-CDASRExclusion` write
+  a warning, and the event log entry is marked `(BROAD path)`.
+- The test suite (296 tests) also checks that a run leaves the catch-audit spill folder and the Application event log untouched.
+  `Tests\ConfigureDefender.IntegrationTests.ps1` now says in its header that it is a standalone script, not a Pester file.
+
 ## [0.5] - 2026-11-04
 
 Everything below, up to the [0.4] heading, was made after the published `v0.4` tag (commit 95586e2, 2026-09-21). The module version is

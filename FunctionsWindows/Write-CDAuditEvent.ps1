@@ -15,7 +15,9 @@ Function Write-CDAuditEvent
 		The text of the event.
 
 		.PARAMETER EventId
-		The event ID. Default 4001 (Defender setting updated).
+		The event ID. Default 4001 (Defender setting updated). 4002 exclusion added or removed, 4003 ASR rule, 4004 Controlled
+		Folder Access mode, 4005 allowed application, 4006 protected folder, 4007 Network Protection mode, 4008 threat default
+		action, 4009 Smart App Control allow logging. Messages carry names and paths only, never secrets.
 	#>
 	[CmdletBinding()]
 	param

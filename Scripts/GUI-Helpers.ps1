@@ -6,9 +6,8 @@
 # ---------------------------------------------------------------------------
 # ConfigureDefenderGUI.ps1 removes and re-imports the module as its very first step, so everything in the GUI (this file, the
 # tab scripts, every event handler) can see only the module's EXPORTED functions. Write-MyCatchAudit and Test-CDEntryMissing are
-# internal. Calling them directly failed with "The term '...' is not recognized" - the Allowed Applications list showed it, and
-# every GUI catch block that tried to audit would have failed the same way. The two functions below carry the SAME names and are
-# defined in the GUI scope; they forward into the module's own scope, where the real ones live (inside that scope the module's
+# internal (as are Test-CDBroadExclusionPath and the rest). Calling one directly fails with "The term '...' is not recognized".
+# The functions below carry the SAME names as the internal ones and are defined in the GUI scope; they forward into the module's own scope, where the real ones live (inside that scope the module's
 # function is found first, so there is no recursion). Call sites stay as they were, and the silent-failure sweep still sees a
 # Write-MyCatchAudit call. A GUI script that needs another internal function needs a forwarder here too - a Pester test checks.
 
@@ -60,6 +59,94 @@ function Test-CDEntryMissing
 		Write-MyCatchAudit -Source 'GUI Test-CDEntryMissing forwarder: asking the module whether a stored path is missing' -ErrorRecord $_
 		return $false   # doubt never marks an entry as missing
 	}
+}
+
+function Test-CDBroadExclusionPath
+{
+	<#
+		.SYNOPSIS
+		GUI-scope forwarder to the module's internal Test-CDBroadExclusionPath (True for a drive root or a core system folder).
+	#>
+	[CmdletBinding()]
+	[OutputType([bool])]
+	param([AllowEmptyString()][AllowNull()][string]$Path)
+
+	try
+	{
+		$Mod = Get-Module ConfigureDefender
+		if (-not $Mod) { return $false }
+		return [bool](& $Mod { param($P) Test-CDBroadExclusionPath $P } $Path)
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'GUI Test-CDBroadExclusionPath forwarder: asking the module whether an exclusion path is broad' -ErrorRecord $_
+		return $false
+	}
+}
+
+function Test-CDAllowedApplicationPath
+{
+	<#
+		.SYNOPSIS
+		GUI-scope forwarder to the module's internal Test-CDAllowedApplicationPath (Verdict Ok / Reject / NeedsForce, plus Reason).
+	#>
+	[CmdletBinding()]
+	[OutputType([PSCustomObject])]
+	param([AllowEmptyString()][AllowNull()][string]$Path)
+
+	try
+	{
+		$Mod = Get-Module ConfigureDefender
+		if ($Mod) { return (& $Mod { param($P) Test-CDAllowedApplicationPath $P } $Path) }
+	}
+	catch
+	{
+		Write-MyCatchAudit -Source 'GUI Test-CDAllowedApplicationPath forwarder: asking the module to judge an allowed-application path' -ErrorRecord $_
+	}
+	return [PSCustomObject]@{ Verdict = 'NeedsForce'; Reason = 'The path could not be checked.' }
+}
+
+function Confirm-AllowedAppPath
+{
+	<#
+		.SYNOPSIS
+		Returns $true when an allowed-application path may be sent to Defender: valid, or not verifiable / not an executable and
+		the user confirms. Otherwise shows why and returns $false.
+
+		.DESCRIPTION
+		Runs in the GUI session, which sees the user's mapped and removable drives (the elevated server does not). A refusal
+		is shown in an OK box. A path that could not be verified, or an existing non-executable file, asks Yes / No with No as the
+		default. The caller sends -Force with every path this function accepts.
+	#>
+	[CmdletBinding()]
+	[OutputType([bool])]
+	param([AllowEmptyString()][string]$Path)
+
+	$V = Test-CDAllowedApplicationPath $Path
+	if ($V.Verdict -eq 'Ok') { return $true }
+	if ($V.Verdict -eq 'Reject')
+	{
+		[System.Windows.Forms.MessageBox]::Show("'$Path' cannot be added as an allowed application.`n`n$($V.Reason)", 'Invalid application', 'OK', 'Warning') | Out-Null
+		return $false
+	}
+	$Answer = [System.Windows.Forms.MessageBox]::Show("$($V.Reason)`n`n'$Path'`n`nAdd it as an allowed application anyway?", 'Allowed application not verified', 'YesNo', 'Warning', 'Button2')
+	return ($Answer -eq 'Yes')
+}
+
+function Get-CDRemoveMissingPrompt
+{
+	<#
+		.SYNOPSIS
+		The confirmation text for removing Missing allowed-application entries: the entries themselves, capped, plus what the removal does.
+	#>
+	[CmdletBinding()]
+	[OutputType([string])]
+	param([Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Entries, [int]$MaxShown = 25)
+
+	$Shown = @($Entries | Select-Object -First $MaxShown)
+	$Text  = "Remove these $($Entries.Count) entries from the Controlled Folder Access allowed applications?`n`n" + ($Shown -join "`n")
+	if ($Entries.Count -gt $Shown.Count) { $Text += "`n...and $($Entries.Count - $Shown.Count) more." }
+	$Text + "`n`nOnly entries on a fixed local drive whose file is gone are listed. The files themselves are not touched. Entries on network, removable or detached drives are never listed."
 }
 
 # ---------------------------------------------------------------------------
@@ -263,9 +350,9 @@ function Test-ExclusionPath ([string]$Path)
 	if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
 	$Path = $Path.Trim()
 
-	if ($Path.Length -gt 260)
+	if ($Path.Length -gt 32767)
 	{
-		[System.Windows.Forms.MessageBox]::Show("That path is too long (maximum 260 characters):`n`n$Path", 'Path too long', 'OK', 'Warning') | Out-Null
+		[System.Windows.Forms.MessageBox]::Show("That path is too long (maximum 32767 characters):`n`n$Path", 'Path too long', 'OK', 'Warning') | Out-Null
 		return $false
 	}
 	if (-not (Test-CDExclusionPath $Path))
@@ -700,16 +787,31 @@ function Confirm-ExclValue
 {
 	<#
 		.SYNOPSIS
-		True when the value is valid for the category; otherwise shows why in a message box and returns False.
+		True when the value is valid for the category (and, for a BROAD path, the user confirms it); otherwise shows why in a
+		message box and returns False.
+
+		.DESCRIPTION
+		A path category value that covers a whole drive or a core system folder (Test-CDBroadExclusionPath) is valid but asks
+		a Yes / No question first, defaulting to No.
 	#>
 	[CmdletBinding()]
 	[OutputType([bool])]
 	param([Parameter(Mandatory)][string]$Category, [AllowEmptyString()][string]$Value)
 
 	$Problem = Get-ExclValidation -Category $Category -Value $Value
-	if ($null -eq $Problem) { return $true }
-	[System.Windows.Forms.MessageBox]::Show($Problem.Message, $Problem.Title, 'OK', 'Warning') | Out-Null
-	return $false
+	if ($null -ne $Problem)
+	{
+		[System.Windows.Forms.MessageBox]::Show($Problem.Message, $Problem.Title, 'OK', 'Warning') | Out-Null
+		return $false
+	}
+	if ($script:ExclTypes[$Category].Kind -eq 'Path' -and (Test-CDBroadExclusionPath $Value))
+	{
+		$Answer = [System.Windows.Forms.MessageBox]::Show(
+			"'$Value' covers a whole drive or a core system folder. Everything under it would be exempt from Defender scanning.`n`nAdd this broad exclusion anyway?",
+			'Broad exclusion', 'YesNo', 'Warning', 'Button2')
+		return ($Answer -eq 'Yes')
+	}
+	return $true
 }
 
 function Show-ExclDialog

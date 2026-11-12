@@ -8,17 +8,17 @@
 
 @{
 	RootModule        = 'InitialiseModule.psm1'
-	ModuleVersion     = '0.5'
+	ModuleVersion     = '0.6'
 	GUID              = 'b4ddb8e6-c93f-4879-9209-31f600ad2a36'
 	Author            = 'RG255'
 	CompanyName       = 'RG255'
 	Copyright         = '(c) 2026 RG255. All rights reserved.'
-	Description       = 'Manages Microsoft Defender configuration: ASR rules, exclusions, Controlled Folder Access, Network Protection, and event inspection. Provides a GUI front-end via NamedPipe elevation. v0.5: GUI hardening and refactor, safe quoting of typed values, audit-event fixes, requires NamedPipe 0.17 (see CHANGELOG.md). v0.4: PSScriptAnalyzer cleanup - 13 exported Get-CD* accessors renamed to singular nouns to match their existing Set-CD* siblings (breaking change, see CHANGELOG.md).'
+	Description       = 'Manages Microsoft Defender configuration: ASR rules, exclusions, Controlled Folder Access, Network Protection, and event inspection. Provides a GUI front-end via NamedPipe elevation. v0.6: requires NamedPipe 0.18; Rm Missing now lists and confirms; more changes are recorded in the Application event log; Set-CDSetting accepts only the settings the GUI offers (see CHANGELOG.md). v0.5: GUI hardening and refactor, safe quoting of typed values, audit-event fixes, requires NamedPipe 0.17 (see CHANGELOG.md). v0.4: PSScriptAnalyzer cleanup - 13 exported Get-CD* accessors renamed to singular nouns to match their existing Set-CD* siblings (breaking change, see CHANGELOG.md).'
 	PowerShellVersion = '5.0'
 	RequiredModules   = @(
 		@{
 			ModuleName      = 'NamedPipe'
-			RequiredVersion = '0.17'
+			RequiredVersion = '0.18'
 		}
 	)
 	# Explicit exports so PowerShell can AUTO-LOAD the module on first use of any of

@@ -7,6 +7,7 @@ Function Set-CDControlledFolderAccess
 
 		.DESCRIPTION
 		Requires elevation - intended to run in the elevated NamedPipe server process.
+		Each successful change is recorded in the Application event log (source ConfigureDefender, event 4004 (mode changed)) with the names or paths involved, never a secret.
 		Values: 0=Disabled, 1=Enabled, 2=Audit, 3=BlockDiskModification, 4=AuditDiskModification.
 
 		.PARAMETER Enable
@@ -35,9 +36,10 @@ Function Set-CDControlledFolderAccess
 
 	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
+	$Mode = $PSCmdlet.ParameterSetName
 	try
 	{
-		switch ($PSCmdlet.ParameterSetName)
+		switch ($Mode)
 		{
 			'Enable'  { Set-MpPreference -EnableControlledFolderAccess 1 }
 			'Audit'   { Set-MpPreference -EnableControlledFolderAccess 2 }
@@ -49,4 +51,6 @@ Function Set-CDControlledFolderAccess
 		Write-MyCatchAudit -Source 'Set-CDControlledFolderAccess: writing Controlled Folder Access state' -ErrorRecord $_
 		throw
 	}
+
+	Write-CDAuditEvent -EventId 4004 -Message ("Defender Controlled Folder Access set to {0}" -f $Mode)
 }

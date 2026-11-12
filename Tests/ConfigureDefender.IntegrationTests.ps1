@@ -4,6 +4,9 @@
     Functional integration tests for the ConfigureDefender module.
 
     .DESCRIPTION
+    This is a standalone script, not a Pester file: it has no It blocks, and Pester does not pick it up (its name does not
+    end in .Tests.ps1). The unit tests are the ones in ConfigureDefender.Tests.ps1; this script is run by hand.
+
     Runs ConfigureDefender operations against the live Defender service.
     Read operations run directly (non-elevated). Write operations are dispatched
     via an elevated NamedPipe server opened on first use and closed in the

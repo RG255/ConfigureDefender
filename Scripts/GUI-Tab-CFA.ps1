@@ -147,7 +147,7 @@ $ToolStripApps.Items.Add($TsBtnAppsRemove) | Out-Null
 $TsBtnAppsRemoveMissing              = New-Object System.Windows.Forms.ToolStripButton
 $TsBtnAppsRemoveMissing.Text         = 'Rm Missing'
 $TsBtnAppsRemoveMissing.DisplayStyle = 'Text'
-$TsBtnAppsRemoveMissing.ToolTipText  = 'Remove entries where the application file no longer exists'
+$TsBtnAppsRemoveMissing.ToolTipText  = 'List the entries whose application file no longer exists (fixed local drives only) and remove them after you confirm'
 $ToolStripApps.Items.Add($TsBtnAppsRemoveMissing) | Out-Null
 
 $ToolStripApps.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator)) | Out-Null
@@ -230,7 +230,7 @@ function Show-AllowedAppDialog ([string]$Title, [string]$Initial = '')
 	$Dlg.MinimizeBox     = $false
 
 	$Lbl          = New-Object System.Windows.Forms.Label
-	$Lbl.Text     = 'Application path (wildcards permitted, e.g. C:\App\app.exe or C:\App\*):'
+	$Lbl.Text     = 'Application path (one existing executable file, e.g. C:\App\app.exe; no wildcards or folders):'
 	$Lbl.Location = New-Object System.Drawing.Point(10, 10)
 	$Lbl.Size     = New-Object System.Drawing.Size(590, 18)
 	$Dlg.Controls.Add($Lbl)
@@ -276,18 +276,12 @@ $TsBtnAppsAdd.Add_Click({
 		$A = Show-AllowedAppDialog 'Add Allowed Application'
 		if ($A)
 		{
-			if (-not (Test-CDExclusionPath $A))
-			{
-				[System.Windows.Forms.MessageBox]::Show(
-					"'$A' is not a valid application path.`n`nPath must be absolute and start with a drive letter (C:\) or UNC path (\\server\share\). Wildcards are permitted (e.g. C:\App\*).`nInvalid characters: < > `" |",
-					'Invalid Path', 'OK', 'Warning') | Out-Null
-				return
-			}
+			if (-not (Confirm-AllowedAppPath $A)) { return }
 			try
 			{
 				$SRP     = Get-CDSRP
 				$Escaped = ConvertTo-CDEscapedArg $A
-				$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add" | Send-Request @SRP
+				$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Add -Force" | Send-Request @SRP
 				if ($SRP.DataObject.Error)
 				{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
 				else
@@ -304,13 +298,7 @@ $LvApps.Add_DoubleClick({
 		$NewPath = Show-AllowedAppDialog 'Edit Allowed Application' $OldPath
 		if ($NewPath -and $NewPath -ne $OldPath)
 		{
-			if (-not (Test-CDExclusionPath $NewPath))
-			{
-				[System.Windows.Forms.MessageBox]::Show(
-					"'$NewPath' is not a valid application path.`n`nPath must be absolute and start with a drive letter (C:\) or UNC path (\\server\share\). Wildcards are permitted (e.g. C:\App\*).`nInvalid characters: < > `" |",
-					'Invalid Path', 'OK', 'Warning') | Out-Null
-				return
-			}
+			if (-not (Confirm-AllowedAppPath $NewPath)) { return }
 			try
 			{
 				$SRP    = Get-CDSRP
@@ -318,7 +306,7 @@ $LvApps.Add_DoubleClick({
 				$EscNew = ConvertTo-CDEscapedArg $NewPath
 				# Add the new entry FIRST: if it fails the original is untouched. Removing first lost the
 				# original whenever the add then failed.
-				$SRP.DataObject = "Set-CDAllowedApplication -Path '$EscNew' -Add" | Send-Request @SRP
+				$SRP.DataObject = "Set-CDAllowedApplication -Path '$EscNew' -Add -Force" | Send-Request @SRP
 				if ($SRP.DataObject.Error) { $StatusLabel.Text = "Error adding new entry (old entry left as it was): $($SRP.DataObject.Error)"; return }
 				$SRP.DataObject = "Set-CDAllowedApplication -Path '$EscOld' -Remove" | Send-Request @SRP
 				if ($SRP.DataObject.Error) { $StatusLabel.Text = "New entry added, but the old one could not be removed: $($SRP.DataObject.Error)" }
@@ -352,18 +340,30 @@ $TsBtnAppsRemove.Add_Click({
 		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
 	})
 
+# Rm Missing: the list is judged here (this session sees the user's own drives), shown, and removed only after a Yes. The
+# elevated server is never asked to decide what is missing.
 $TsBtnAppsRemoveMissing.Add_Click({
 		try
 		{
-			$SRP = Get-CDSRP
-			$SRP.DataObject = 'Set-CDAllowedApplication -RemoveMissing' | Send-Request @SRP
-			if ($SRP.DataObject.Error)
-			{ $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
-			else
+			$TsBtnAppsRefresh.PerformClick()
+			$Missing = @($script:AllowedAppsCache | Where-Object { $_ -and $script:AllowedAppsMissing -and $script:AllowedAppsMissing[[string]$_] } | ForEach-Object { [string]$_ })
+			if ($Missing.Count -eq 0) { $StatusLabel.Text = 'No missing applications to remove.'; return }
+			$Answer = [System.Windows.Forms.MessageBox]::Show((Get-CDRemoveMissingPrompt -Entries $Missing), 'Remove missing applications', 'YesNo', 'Warning', 'Button2')
+			if ($Answer -ne 'Yes') { $StatusLabel.Text = 'Remove missing cancelled; nothing was removed.'; return }
+			$SRP      = Get-CDSRP
+			$Ok       = 0
+			$ErrCount = 0
+			foreach ($A in $Missing)
 			{
-				$StatusLabel.Text = 'Missing applications removed.'
-				$TsBtnAppsRefresh.PerformClick()
+				$Escaped = ConvertTo-CDEscapedArg $A
+				$SRP.DataObject = "Set-CDAllowedApplication -Path '$Escaped' -Remove" | Send-Request @SRP
+				if ($SRP.DataObject.Error)
+				{ $ErrCount++; $StatusLabel.Text = "Error: $($SRP.DataObject.Error)" }
+				else
+				{ $Ok++ }
 			}
+			if ($Ok -gt 0) { $TsBtnAppsRefresh.PerformClick() }
+			$StatusLabel.Text = if ($ErrCount -gt 0) { "Removed $Ok missing application(s), $ErrCount error(s)." } else { "Removed $Ok missing application(s)." }
 		}
 		catch { $StatusLabel.Text = 'Error: ' + $_.Exception.Message }
 	})

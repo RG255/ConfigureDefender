@@ -7,6 +7,7 @@ Function Set-CDControlledFolder
 
 		.DESCRIPTION
 		Requires elevation - intended to run in the elevated NamedPipe server process.
+		Each successful change is recorded in the Application event log (source ConfigureDefender, event 4006 (protected folder added or removed)) with the names or paths involved, never a secret.
 
 		.PARAMETER Folder
 		The folder path to add or remove.
@@ -34,12 +35,13 @@ Function Set-CDControlledFolder
 
 	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
+	$Verb = 'added'
 	try
 	{
 		switch ($PSCmdlet.ParameterSetName)
 		{
 			'Add'    { Add-MpPreference    -ControlledFolderAccessProtectedFolders $Folder }
-			'Remove' { Remove-MpPreference -ControlledFolderAccessProtectedFolders $Folder }
+			'Remove' { $Verb = 'removed'; Remove-MpPreference -ControlledFolderAccessProtectedFolders $Folder }
 		}
 	}
 	catch
@@ -47,4 +49,6 @@ Function Set-CDControlledFolder
 		Write-MyCatchAudit -Source 'Set-CDControlledFolder: writing protected-folder entry' -ErrorRecord $_
 		throw
 	}
+
+	Write-CDAuditEvent -EventId 4006 -Message ("Defender Controlled Folder Access protected folder {0}: {1}" -f $Verb, $Folder)
 }

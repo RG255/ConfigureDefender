@@ -7,6 +7,7 @@ Function Set-CDASRExclusion
 
 		.DESCRIPTION
 		Requires elevation - intended to run in the elevated NamedPipe server process.
+		Each successful change is recorded in the Application event log (source ConfigureDefender, event 4002 (ASR-only exclusion added or removed)) with the names or paths involved, never a secret.
 		ASR exclusions exempt a path from all ASR rules.
 
 		.PARAMETER Path
@@ -35,12 +36,19 @@ Function Set-CDASRExclusion
 
 	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
+	$Verb  = 'added'
+	$Broad = $false
 	try
 	{
 		switch ($PSCmdlet.ParameterSetName)
 		{
-			'Add'    { Add-MpPreference    -AttackSurfaceReductionOnlyExclusions $Path }
-			'Remove' { Remove-MpPreference -AttackSurfaceReductionOnlyExclusions $Path }
+			'Add'
+			{
+				$Broad = Test-CDBroadExclusionPath $Path
+				if ($Broad) { Write-Warning "Broad exclusion: '$Path' covers a whole drive or a core system folder." }
+				Add-MpPreference -AttackSurfaceReductionOnlyExclusions $Path
+			}
+			'Remove' { $Verb = 'removed'; Remove-MpPreference -AttackSurfaceReductionOnlyExclusions $Path }
 		}
 	}
 	catch
@@ -48,4 +56,6 @@ Function Set-CDASRExclusion
 		Write-MyCatchAudit -Source 'Set-CDASRExclusion: writing ASR exclusion' -ErrorRecord $_
 		throw
 	}
+
+	Write-CDAuditEvent -EventId 4002 -Message ("Defender ASR-only exclusion {0}: {1}{2}" -f $Verb, $Path, $(if ($Broad) { ' (BROAD path)' } else { '' }))
 }

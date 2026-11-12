@@ -7,6 +7,7 @@ Function Set-CDExclusionProcess
 
 		.DESCRIPTION
 		Requires elevation - intended to run in the elevated NamedPipe server process.
+		Each successful change is recorded in the Application event log (source ConfigureDefender, event 4002 (process exclusion added or removed)) with the names or paths involved, never a secret.
 		Process exclusions exempt a named process from all Defender real-time scanning.
 		The value can be a process name (e.g. 'myapp.exe') or a full path.
 
@@ -36,12 +37,13 @@ Function Set-CDExclusionProcess
 
 	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
+	$Verb = 'added'
 	try
 	{
 		switch ($PSCmdlet.ParameterSetName)
 		{
 			'Add'    { Add-MpPreference    -ExclusionProcess $Process }
-			'Remove' { Remove-MpPreference -ExclusionProcess $Process }
+			'Remove' { $Verb = 'removed'; Remove-MpPreference -ExclusionProcess $Process }
 		}
 	}
 	catch
@@ -49,4 +51,6 @@ Function Set-CDExclusionProcess
 		Write-MyCatchAudit -Source 'Set-CDExclusionProcess: writing process exclusion' -ErrorRecord $_
 		throw
 	}
+
+	Write-CDAuditEvent -EventId 4002 -Message ("Defender process exclusion {0}: {1}" -f $Verb, $Process)
 }

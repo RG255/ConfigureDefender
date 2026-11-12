@@ -11,7 +11,9 @@ Function Set-CDSetting
 		changed via a single function.
 
 		.PARAMETER Name
-		The MpPreference property name (e.g. 'DisableRealtimeMonitoring').
+		The MpPreference property name (e.g. 'DisableRealtimeMonitoring'). Only the settings Get-CDSetting offers (and the
+		Settings tab shows) are accepted; any other name is rejected before anything is sent to Defender. Keep this list in
+		step with Get-CDSetting (a test compares them).
 
 		.PARAMETER Value
 		The value to set. Pass $true/$false for Bool settings, an integer for Enum
@@ -23,6 +25,13 @@ Function Set-CDSetting
 	param
 	(
 		[Parameter(Mandatory)]
+		[ValidateSet(
+			'DisableRealtimeMonitoring', 'DisableBehaviorMonitoring', 'DisableArchiveScanning', 'DisableEmailScanning',
+			'DisableScriptScanning', 'DisableIOAVProtection', 'DisableRemovableDriveScanning', 'DisableScanningNetworkFiles',
+			'DisableScanningMappedNetworkDrivesForFullScan', 'CheckForSignaturesBeforeRunningScan', 'DisableBlockAtFirstSeen',
+			'DisableTamperProtection', 'EnableFileHashComputation', 'PUAProtection', 'MAPSReporting', 'SubmitSamplesConsent',
+			'CloudBlockLevel', 'CloudExtendedTimeout', 'EnableLowCpuPriority', 'DisableCpuThrottleOnIdleScans',
+			'EnableNetworkProtection', 'EnableControlledFolderAccess', 'HideExclusionsFromLocalUsers', 'UILockdown')]
 		[string]$Name,
 
 		[Parameter(Mandatory)]
@@ -44,20 +53,24 @@ Function Set-CDSetting
 
 		# Read it back. With Tamper Protection on (or a policy in force) Set-MpPreference returns with NO error and
 		# changes nothing - a direct elevated Set-MpPreference does exactly that - so a call that did not throw proves
-		# nothing. If the value did not stick, say so instead of reporting success. When the value cannot be compared
-		# (property absent, odd type) this stays quiet rather than raise a false alarm.
+		# nothing. If the value did not stick, say so instead of reporting success. A property that is absent from the
+		# preference object cannot be checked and stays quiet; a value that is present but cannot be COMPARED is reported
+		# as unconfirmed, never assumed to match.
 		$Pref = Get-MpPreference -ErrorAction Stop
 		if ($Pref.PSObject.Properties[$Name])
 		{
-			$After = $Pref.$Name
-			$Same  = $true
+			$After        = $Pref.$Name
+			$Same         = $false
+			$CompareError = $null
 			try
 			{
 				if ($Value -is [bool])      { $Same = ([bool]$After -eq $Value) }
 				elseif ($Value -is [ValueType]) { $Same = ([int64]$After -eq [int64]$Value) }   # integers and enums
 				else                        { $Same = ([string]$After -eq [string]$Value) }
 			}
-			catch { $Same = $true }
+			catch { $CompareError = $_.Exception.Message }
+			if ($CompareError)
+			{ throw ("Defender accepted the command but {0} could not be confirmed: its value ('{1}') could not be compared with '{2}' ({3})." -f $Name, $After, $Value, $CompareError) }
 			if (-not $Same)
 			{ throw ("Defender accepted the command but {0} is still '{1}' (wanted '{2}'). Tamper Protection or a policy is probably blocking the change." -f $Name, $After, $Value) }
 		}

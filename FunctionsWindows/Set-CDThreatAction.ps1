@@ -7,6 +7,7 @@ Function Set-CDThreatAction
 
 		.DESCRIPTION
 		Requires elevation - intended to run in the elevated NamedPipe server process.
+		Each successful change is recorded in the Application event log (source ConfigureDefender, event 4008 (default action changed)) with the names or paths involved, never a secret.
 
 		.PARAMETER Level
 		The threat severity level: Severe, High, Moderate, Low, or Unknown.
@@ -53,4 +54,6 @@ Function Set-CDThreatAction
 		Write-MyCatchAudit -Source 'Set-CDThreatAction: writing threat-action preference' -ErrorRecord $_
 		throw
 	}
+
+	Write-CDAuditEvent -EventId 4008 -Message ("Defender {0}-severity threat default action set to {1}" -f $Level, $Action)
 }

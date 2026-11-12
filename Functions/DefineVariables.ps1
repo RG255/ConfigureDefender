@@ -89,6 +89,10 @@ $script:FunctionExportTable = @{
 	# Shared 'is this stored path really missing' rule (2026-10-17) - internal, used by the Get/Set allowed-application
 	# functions and the Allowed Applications tab
 	'Test-CDEntryMissing'          = $false
+	# Broad-exclusion-path rule behind the warning (used by Set-CDExclusionPath / Set-CDASRExclusion and the Exclusions tab) - internal
+	'Test-CDBroadExclusionPath'    = $false
+	# Allowed-application path rule (Set-CDAllowedApplication -Add and the Allowed Applications tab) - internal
+	'Test-CDAllowedApplicationPath' = $false
 	# Event-log reader behind Get-CDEvent (2026-10-18) - internal
 	'Read-CDEventLog'              = $false
 	# Pipe session management - GUI process only

@@ -16,7 +16,7 @@
 
 	.EXAMPLE
 	Remove-Module ConfigureDefender -Force -ErrorAction SilentlyContinue
-	Import-Module ConfigureDefender -RequiredVersion 0.5
+	Import-Module ConfigureDefender -RequiredVersion 0.6
 #>
 try
 {
@@ -77,8 +77,8 @@ try
 		}
 		Catch
 		{
-			Write-Warning ('Variable:[{0}] failed to create: {1}' -f $Item, $_.Exception.Message)
-			throw
+			# A variable that cannot be created must stop the import, not leave the module half-loaded.
+			throw ('Module [{0}]: variable [{1}] could not be created or exported: {2}' -f $ModuleName, $Item, $_.Exception.Message)
 		}
 	}
 
@@ -109,7 +109,6 @@ try
 		}
 	}
 
-	$Global:Error.clear()
 	$ModuleScriptRoot = $PSScriptRoot
 	$ModuleName       = (Split-Path -Path (Split-Path -Path $ModuleScriptRoot -Parent) -Leaf)
 	$PSD1Path         = (Join-Path -Path $ModuleScriptRoot -ChildPath ('{0}.{1}' -f $ModuleName, 'psd1'))

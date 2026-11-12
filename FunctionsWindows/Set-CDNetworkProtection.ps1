@@ -7,6 +7,7 @@ Function Set-CDNetworkProtection
 
 		.DESCRIPTION
 		Requires elevation - intended to run in the elevated NamedPipe server process.
+		Each successful change is recorded in the Application event log (source ConfigureDefender, event 4007 (mode changed)) with the names or paths involved, never a secret.
 		Values: 0=Disabled, 1=Enabled, 2=Audit.
 
 		.PARAMETER Enable
@@ -35,9 +36,10 @@ Function Set-CDNetworkProtection
 
 	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
+	$Mode = $PSCmdlet.ParameterSetName
 	try
 	{
-		switch ($PSCmdlet.ParameterSetName)
+		switch ($Mode)
 		{
 			'Enable'  { Set-MpPreference -EnableNetworkProtection 1 }
 			'Audit'   { Set-MpPreference -EnableNetworkProtection 2 }
@@ -49,4 +51,6 @@ Function Set-CDNetworkProtection
 		Write-MyCatchAudit -Source 'Set-CDNetworkProtection: writing Network Protection state' -ErrorRecord $_
 		throw
 	}
+
+	Write-CDAuditEvent -EventId 4007 -Message ("Defender Network Protection set to {0}" -f $Mode)
 }

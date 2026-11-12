@@ -7,6 +7,7 @@ Function Set-CDASRRule
 
 		.DESCRIPTION
 		Requires elevation - intended to run in the elevated NamedPipe server process.
+		Each successful change is recorded in the Application event log (source ConfigureDefender, event 4003 (ASR rule changed or removed)) with the names or paths involved, never a secret.
 
 		.PARAMETER GUID
 		The GUID of the rule to add or change.
@@ -61,6 +62,7 @@ Function Set-CDASRRule
 
 	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
+	$Audit = $null
 	try
 	{
 		switch ($PSCmdlet.ParameterSetName)
@@ -69,6 +71,7 @@ Function Set-CDASRRule
 			{
 				Add-MpPreference -AttackSurfaceReductionRules_Ids $GUID `
 					-AttackSurfaceReductionRules_Actions $script:ASROptions[$Action]
+				$Audit = "Defender ASR rule {0} set to {1}" -f $GUID, $Action
 			}
 			'AddAll'
 			{
@@ -76,15 +79,18 @@ Function Set-CDASRRule
 				$RuleIds     = @($script:ASRRules.Keys)
 				$RuleActions = @($RuleIds | ForEach-Object { $script:ASROptions[$Action] })
 				Add-MpPreference -AttackSurfaceReductionRules_Ids $RuleIds -AttackSurfaceReductionRules_Actions $RuleActions
+				$Audit = "Defender ASR: all {0} known rules set to {1}" -f $RuleIds.Count, $Action
 			}
 			'Remove'
 			{
 				Remove-MpPreference -AttackSurfaceReductionRules_Ids $RemoveGUID
+				$Audit = "Defender ASR rule {0} removed" -f $RemoveGUID
 			}
 			'RemoveAll'
 			{
 				$CurrentIDs = @((Get-MpPreference).AttackSurfaceReductionRules_Ids | Where-Object { $_ })
 				if ($CurrentIDs.Count -gt 0) { Remove-MpPreference -AttackSurfaceReductionRules_Ids $CurrentIDs }
+				$Audit = "Defender ASR: all configured rules removed ({0})" -f $CurrentIDs.Count
 			}
 		}
 	}
@@ -93,4 +99,6 @@ Function Set-CDASRRule
 		Write-MyCatchAudit -Source 'Set-CDASRRule: writing ASR rule state' -ErrorRecord $_
 		throw
 	}
+
+	if ($Audit) { Write-CDAuditEvent -EventId 4003 -Message $Audit }
 }

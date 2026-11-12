@@ -14,19 +14,21 @@ A PowerShell module for managing Microsoft Defender configuration on Windows 10/
 - View threat detection history
 - WinForms GUI front-end - no PowerShell experience required
 - Write operations routed through a persistent elevated NamedPipe server (single UAC prompt per session)
+- Every change the module makes to Defender is recorded in the Application event log (source `ConfigureDefender`, events 4001-4009)
+- Safety checks in the GUI: Rm Missing lists the entries and asks first; a broad exclusion (a whole drive or a core system folder) asks first
 
 ## Requirements
 
 - Windows 10 / Windows 11
 - Windows PowerShell 5.1
-- [NamedPipe module v0.17](https://github.com/RG255/NamedPipe)
+- [NamedPipe module v0.18](https://github.com/RG255/NamedPipe) (ConfigureDefender 0.6 is pinned to exactly this version)
 
 ## Installation
 
 1. Install the NamedPipe module (required dependency).
-2. Copy the `ConfigureDefender\0.5` folder to a path in `$env:PSModulePath`, e.g.:
+2. Copy the `ConfigureDefender\0.6` folder to a path in `$env:PSModulePath`, e.g.:
    ```
-   %USERPROFILE%\Documents\WindowsPowerShell\Modules\ConfigureDefender\0.5\
+   %USERPROFILE%\Documents\WindowsPowerShell\Modules\ConfigureDefender\0.6\
    ```
 3. Import and launch:
    ```powershell

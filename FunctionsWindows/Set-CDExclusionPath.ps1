@@ -9,7 +9,13 @@ Function Set-CDExclusionPath
 		Requires elevation - intended to run in the elevated NamedPipe server process.
 		Wildcards are supported (e.g. C:\Temp\*.tmp). UNC paths (\\server\share\...) are allowed.
 		The path is validated when it is ADDED only: Remove must always work, so an entry that is already in the list
-		(a UNC path, or something another tool added) can still be taken out.
+		(a UNC path, or something another tool added) can still be taken out. The length limit is the Windows extended-path
+		maximum (32767 characters), so a long entry that is already in the list can be added again.
+
+		A BROAD path (a drive root, the Windows folder, Program Files, a bare wildcard - see Test-CDBroadExclusionPath) is
+		still added, with a warning, and the Application event log entry says so.
+
+		Every successful add or remove writes an Application event log entry (source ConfigureDefender, event 4002) with the path.
 
 		.PARAMETER Path
 		The file, folder, or wildcard path to add or remove.
@@ -38,6 +44,8 @@ Function Set-CDExclusionPath
 
 	If (1 -band ($env:MyFunctionTraceEnabled -as [Int])) { Write-MyFunctionTrace }
 
+	$Verb  = 'added'
+	$Broad = $false
 	try
 	{
 		switch ($PSCmdlet.ParameterSetName)
@@ -46,10 +54,16 @@ Function Set-CDExclusionPath
 			{
 				if ([string]::IsNullOrWhiteSpace($Path)) { throw 'Path cannot be empty' }
 				if ($Path -match '[<>"|\x00-\x1F]') { throw 'Invalid characters in path' }
-				if ($Path.Length -gt 260) { throw 'Path exceeds Windows maximum length (260 characters)' }
+				if ($Path.Length -gt 32767) { throw 'Path exceeds the Windows extended-path maximum length (32767 characters)' }
+				$Broad = Test-CDBroadExclusionPath $Path
+				if ($Broad) { Write-Warning "Broad exclusion: '$Path' covers a whole drive or a core system folder." }
 				Add-MpPreference -ExclusionPath $Path
 			}
-			'Remove' { Remove-MpPreference -ExclusionPath $Path }
+			'Remove'
+			{
+				$Verb = 'removed'
+				Remove-MpPreference -ExclusionPath $Path
+			}
 		}
 	}
 	catch
@@ -57,4 +71,6 @@ Function Set-CDExclusionPath
 		Write-MyCatchAudit -Source 'Set-CDExclusionPath: writing path exclusion' -ErrorRecord $_
 		throw
 	}
+
+	Write-CDAuditEvent -EventId 4002 -Message ("Defender path exclusion {0}: {1}{2}" -f $Verb, $Path, $(if ($Broad) { ' (BROAD path)' } else { '' }))
 }
