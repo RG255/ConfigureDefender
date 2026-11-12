@@ -7,6 +7,16 @@ All notable changes to this project will be documented in this file.
 Everything below, up to the [0.4] heading, was made after the published `v0.4` tag (commit 95586e2, 2026-09-21). The module version is
 now 0.5 so that the tag, the manifest and the version folder agree; the code is the same as the last 0.4 build.
 
+### Fixed (2026-11-08, shared utilities)
+
+- Catch-audit log: errors raised from string-compiled code (no script name) are no longer silently dropped; the triage no longer deletes entries that arrive while it is prompting; clearing the log twice in one second no longer overwrites the first archive.
+- `Invoke-FileManagement` (log retention): the keep-N rule no longer keeps one too many and now picks the oldest by date, and the size rule can no longer loop forever on a locked old file.
+
+### Added (2026-11-08)
+
+- Catch-audit spill file: entries a non-elevated session cannot persist are saved to `C:\ProgramData\CatchAudit\Spill` and imported by an elevated reader or deploy (Origin=Spill).
+- 2026-11-08: Fixed: `Protect-MyFunctionTraceFolder -Check` wrongly reported the function-trace folder as locked down when Users had an inheritable allow (or any allow wider than list + add a file); it now reports it as NOT locked down. Applying it was never affected.
+
 ### Fixed (2026-11-06)
 
 - The test suite no longer moves the machine's real persisted catch-audit log to an archive. One test cleared the log with

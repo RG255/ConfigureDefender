@@ -594,7 +594,7 @@ Tests do not require elevation and do not modify Defender configuration.
 All Defender cmdlets (`Get-MpPreference`, `Set-MpPreference`, `Add-MpPreference`,
 `Remove-MpPreference`) are mocked. The suite (210 tests at 0.5) runs under Windows PowerShell 5.1 and PowerShell 7 (Pester 5).
 It does not touch the persisted catch-audit log (`CatchAudit.jsonl` under the common application data folder): the last test
-fails if that file's hash changed during the run.
+fails if that file's hash changed during the run. Outside the tests, an entry a non-elevated session cannot persist is also saved to a `Spill` folder beside that file and imported by an elevated `Get-MyCatchAuditLog` or a deploy.
 
 An extra runnable check of the Exclusions tab (it drives the real tab script in an invisible form, no Defender access):
 
